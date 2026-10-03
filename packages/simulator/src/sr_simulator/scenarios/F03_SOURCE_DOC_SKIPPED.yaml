@@ -22,3 +22,5 @@ expect:
 evidence:
   - table: composer.source_document
     where: {fetch_status: FAILED}
+  - table: log
+    where: {service: composer-worker, level: WARN, error_code: SOURCE_DOC_FETCH_FAILED}

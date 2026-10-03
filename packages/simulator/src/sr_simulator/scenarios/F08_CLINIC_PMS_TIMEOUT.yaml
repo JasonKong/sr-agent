@@ -23,3 +23,5 @@ evidence:
     where: {channel: CLINIC_PMS, last_error_code: TIMEOUT}
   - table: hub.delivery_attempt
     where: {error_code: TIMEOUT}
+  - table: log
+    where: {service: hub-worker, event: DELIVERY_TIMEOUT}

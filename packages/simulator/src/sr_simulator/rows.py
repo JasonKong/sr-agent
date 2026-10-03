@@ -234,6 +234,29 @@ class ReturnCallback:
     attempted_at: datetime
 
 
+# --- Logs -----------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class LogLine:
+    """One structured log line (DESIGN.md section 3.3). Not a database table: logs are JSONL.
+
+    `referral_id` is the id native to the logging system (GR- in Composer, HR- in the Hub);
+    `correlation_id` is shared across both. `id` is `<service>:<sequence>`.
+    """
+
+    id: str
+    timestamp: datetime
+    level: EventLevel
+    service: str
+    referral_id: str
+    correlation_id: str
+    leg: str
+    event: str
+    error_code: str | None
+    message: str
+
+
 # --- World ----------------------------------------------------------------------------------
 
 
@@ -259,6 +282,7 @@ class World:
     delivery_attempts: list[DeliveryAttempt] = field(default_factory=list)
     recipient_actions: list[RecipientAction] = field(default_factory=list)
     return_callbacks: list[ReturnCallback] = field(default_factory=list)
+    logs: list[LogLine] = field(default_factory=list)
     # Ground truth, never written to the database: Composer id -> injected failure code.
     # Referrals without an entry are F00_NO_FAULT.
     labels: dict[str, FailureCode] = field(default_factory=dict)
@@ -306,4 +330,5 @@ ROW_TYPES: dict[str, type[DataclassInstance]] = {
     "hub.delivery_attempt": DeliveryAttempt,
     "hub.recipient_action": RecipientAction,
     "hub.return_callback": ReturnCallback,
+    "log": LogLine,  # evidence can point at log lines too
 }

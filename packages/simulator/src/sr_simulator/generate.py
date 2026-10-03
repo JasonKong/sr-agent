@@ -24,6 +24,7 @@ from sr_db.domain import (
     CallbackStatus,
     ClinicPmsVendor,
     DeliveryChannel,
+    DeliveryErrorCode,
     DeliveryStatus,
     EndpointStatus,
     ErrorLevel,
@@ -55,6 +56,7 @@ from sr_simulator.rows import (
     HubReferral,
     HubSend,
     InboundResponse,
+    LogLine,
     PatientSnapshot,
     PmsConnection,
     RecipientAction,
@@ -252,10 +254,62 @@ _Event = tuple[datetime, str, str | None, EventLevel, str | None]
 INFO, WARN, ERROR = EventLevel.INFO, EventLevel.WARN, EventLevel.ERROR
 
 
+# Composer events and where they are logged: (service, leg, error code).
+COMPOSER_EVENT_LOGS: dict[str, tuple[str, str, str | None]] = {
+    "SUBMITTED": ("composer-web", "compose", None),
+    "VALIDATION_FAILED": ("composer-web", "compose", "VALIDATION_FAILED"),
+    "SOURCE_DOCUMENTS_FETCHED": ("composer-worker", "compose", None),
+    "PDF_GENERATED": ("composer-worker", "compose", None),
+    "PDF_TOO_LARGE": ("composer-worker", "compose", "PDF_TOO_LARGE"),
+    "PDF_COMPRESSION_RETRY": ("composer-worker", "compose", None),
+    "PDF_GENERATION_FAILED": ("composer-worker", "compose", "PDF_TOO_LARGE"),
+    "FILED_TO_OUTBOX": ("composer-worker", "compose", None),
+    "SENT_TO_HUB": ("composer-worker", "ingest", None),
+    "HUB_SEND_FAILED": ("composer-worker", "ingest", "HUB_UNAVAILABLE"),
+    "AUTO_RESEND": ("composer-worker", "ingest", None),
+    "CHECK_RECEIVED": ("composer-worker", "ingest", "NOT_ACCEPTED"),
+    "HUB_ACCEPTED": ("composer-web", "ingest", None),
+    "RESPONSE_RECEIVED": ("composer-web", "return", None),
+    "RESPONSE_FILED": ("composer-worker", "return", None),
+    "RESPONSE_FILING_FAILED": ("composer-worker", "return", "INBOX_FILING_FAILED"),
+}
+
+_PendingLog = tuple[datetime, int, str, EventLevel, str, str, str, str, str | None, str]
+
+
 class _Emitter:
     def __init__(self, config: SimConfig, world: World) -> None:
         self.anchor = config.anchor_time
         self.world = world
+        self._logs: list[_PendingLog] = []
+
+    def log(
+        self,
+        at: datetime,
+        service: str,
+        level: EventLevel,
+        referral_id: str,
+        correlation_id: str,
+        leg: str,
+        event: str,
+        message: str,
+        error_code: str | None = None,
+    ) -> None:
+        if self.happened(at):
+            entry = (at, len(self._logs), service, level, referral_id, correlation_id, leg)
+            self._logs.append((*entry, event, error_code, message))
+
+    def finish_logs(self) -> None:
+        """Number each service's lines in time order (ties keep emission order)."""
+        sequence: dict[str, int] = {}
+        for at, _, service, level, rid, corr, leg, event, code, message in sorted(
+            self._logs, key=lambda e: (e[2], e[0], e[1])
+        ):
+            sequence[service] = sequence.get(service, 0) + 1
+            line_id = f"{service}:{sequence[service]:06d}"
+            self.world.logs.append(
+                LogLine(line_id, at, level, service, rid, corr, leg, event, code, message)
+            )
 
     def happened(self, moment: datetime | None) -> bool:
         return moment is not None and moment <= self.anchor
@@ -266,7 +320,24 @@ class _Emitter:
         """Emit the Hub rows; return emitted recipient action ids by 1-based plan position."""
         world, hub_id = self.world, f"HR-{number}"
         accepted = self.happened(plan.accepted_at) and plan.fetch_failure is None
+        corr = plan.correlation_id
+        self.log(
+            plan.hub_created_at, "hub-api", INFO, hub_id, corr, "ingest", "REFERRAL_RECEIVED",
+            f"Received referral GR-{plan.number} from Composer",
+        )  # fmt: skip
         world.hub_files.append(self._hub_file(plan, number, hub_id))
+        if accepted and plan.manual_routing:
+            self.log(
+                plan.accepted_at, "hub-api", INFO, hub_id, corr, "ingest",
+                "REFERRAL_ROUTED_MANUAL",
+                f"Accepted; clinic {plan.clinic.row.id} has no active account, routed for "
+                "manual delivery",
+            )  # fmt: skip
+        elif accepted:
+            self.log(
+                plan.accepted_at, "hub-api", INFO, hub_id, corr, "ingest", "REFERRAL_ACCEPTED",
+                f"Accepted; delivering on {len(plan.deliveries)} channels",
+            )  # fmt: skip
 
         status = HubReferralStatus.NEW
         action_ids: dict[int, str] = {}
@@ -282,6 +353,10 @@ class _Emitter:
                 world.recipient_actions.append(
                     RecipientAction(action_id, hub_id, action.kind, actor.id, action.at)
                 )
+                self.log(
+                    action.at, "hub-api", INFO, hub_id, corr, "respond", "RECIPIENT_ACTION",
+                    f"{action.kind.value} by {actor.id} ({action_id})",
+                )  # fmt: skip
                 if action.kind is RecipientActionType.VIEWED and status is HubReferralStatus.NEW:
                     status = HubReferralStatus.VIEWED
                 elif action.kind is RecipientActionType.ACKNOWLEDGED:
@@ -290,6 +365,10 @@ class _Emitter:
                     status = HubReferralStatus.DECLINED
                 if self.happened(action.callback_at):
                     assert action.callback_at is not None
+                    self.log(
+                        action.callback_at, "hub-worker", INFO, hub_id, corr, "return",
+                        "CALLBACK_SENT", f"Returned {action.kind.value} to Composer (HTTP 200)",
+                    )  # fmt: skip
                     world.return_callbacks.append(
                         ReturnCallback(
                             f"rc_{(number * 10 + k) * 10 + 1}",
@@ -326,10 +405,20 @@ class _Emitter:
             return HubFile(
                 file_id, hub_id, pdf, FetchStatus.PENDING, None, None, plan.hub_created_at
             )
+        corr = plan.correlation_id
         if plan.fetch_failure is not None:
             error, _, refetch_at = plan.fetch_failure
+            for at in (plan.file_fetched_at, refetch_at):
+                self.log(
+                    at, "hub-worker", ERROR, hub_id, corr, "ingest", "FILE_FETCH_FAILED",
+                    f"Could not fetch {file_id} from Composer: {error}", "FILE_FETCH_FAILED",
+                )  # fmt: skip
             last_try = refetch_at if self.happened(refetch_at) else plan.file_fetched_at
             return HubFile(file_id, hub_id, pdf, FetchStatus.FAILED, None, error, last_try)
+        self.log(
+            plan.file_fetched_at, "hub-worker", INFO, hub_id, corr, "ingest", "FILE_FETCHED",
+            f"Fetched {file_id} ({plan.pdf_size_bytes} bytes)",
+        )  # fmt: skip
         return HubFile(
             file_id,
             hub_id,
@@ -345,10 +434,36 @@ class _Emitter:
     ) -> None:
         world, delivery_id = self.world, f"dl_{delivery_no}"
         failure = plan.pms_failure if delivery.channel is DeliveryChannel.CLINIC_PMS else None
+        corr, target = plan.correlation_id, delivery.target
 
         if failure is not None and self.happened(delivery.attempted_at):
             done = [a for a in failure.attempts if self.happened(a[0])]
             failed = self.happened(failure.failed_at)
+            code = failure.error_code.value
+            if not failure.attempts:  # failed before sending, e.g. authentication (F07)
+                self.log(
+                    failure.failed_at, "hub-worker", ERROR, hub_id, corr, "deliver",
+                    "CLINIC_PMS_AUTH_FAILED",
+                    f"Clinic PMS {target}: authentication failed, token expired; "
+                    f"{delivery_id} not sent", code,
+                )  # fmt: skip
+            for n, (at, http_status, message, _) in enumerate(done, start=1):
+                if failure.error_code is DeliveryErrorCode.TIMEOUT:
+                    self.log(
+                        at, "hub-worker", WARN, hub_id, corr, "deliver", "DELIVERY_TIMEOUT",
+                        f"Clinic PMS {target}: {message} (attempt {n} of {delivery_id})", code,
+                    )  # fmt: skip
+                else:
+                    self.log(
+                        at, "hub-worker", ERROR, hub_id, corr, "deliver", "DELIVERY_REJECTED",
+                        f"Clinic PMS {target} rejected {delivery_id}: HTTP {http_status} "
+                        f"{message}", code,
+                    )  # fmt: skip
+            if failed and failure.error_code is DeliveryErrorCode.TIMEOUT:
+                self.log(
+                    failure.failed_at, "hub-worker", ERROR, hub_id, corr, "deliver",
+                    "DELIVERY_FAILED", f"{delivery_id} to {target}: retries exhausted", code,
+                )  # fmt: skip
             for n, (at, http_status, message, latency) in enumerate(done, start=1):
                 world.delivery_attempts.append(
                     DeliveryAttempt(
@@ -389,6 +504,12 @@ class _Emitter:
             )
         )
         if done_ok:
+            self.log(
+                delivery.attempted_at, "hub-worker", INFO, hub_id, corr, "deliver",
+                "DELIVERY_SUCCEEDED",
+                f"{delivery.channel.value} {delivery_id} to {target}: HTTP {delivery.http_status} "
+                f"in {delivery.latency_ms} ms",
+            )  # fmt: skip
             world.delivery_attempts.append(
                 DeliveryAttempt(
                     f"da_{delivery_no * 10 + 1}",
@@ -440,6 +561,13 @@ class _Emitter:
                     )
                 )
                 fetched += 0 if skipped else 1
+                if skipped:  # F03: silent in the timeline, a warning in the worker log
+                    self.log(
+                        plan.generated_at, "composer-worker", WARN, referral_id,
+                        plan.correlation_id, "compose", "SOURCE_DOC_FETCH_FAILED",
+                        f"Source document doc_{number * 10 + k} could not be fetched "
+                        f"({fetch_error}); continuing without it", "SOURCE_DOC_FETCH_FAILED",
+                    )  # fmt: skip
             detail = f"{fetched} documents"
             events.append((plan.generated_at, "SOURCE_DOCUMENTS_FETCHED", None, INFO, detail))
             if plan.pdf_failure is not None:  # F02
@@ -542,6 +670,13 @@ class _Emitter:
                 status = ReferralStatus.DECLINED
 
         events.sort(key=lambda e: e[0])  # stable: same-moment events keep their leg order
+        for moment, event, sub_type, level, detail_text in events:
+            service, leg, code = COMPOSER_EVENT_LOGS[event]
+            message = detail_text or f"{event.replace('_', ' ').capitalize()}: {sub_type}"
+            if sub_type and detail_text:
+                message = f"{detail_text} ({sub_type})"
+            corr = plan.correlation_id
+            self.log(moment, service, level, referral_id, corr, leg, event, message, code)
         for seq, (moment, event, sub_type, level, detail_text) in enumerate(events, start=1):
             world.referral_events.append(
                 ReferralEvent(
@@ -621,6 +756,7 @@ def generate(config: SimConfig) -> World:
         action_ids[plan.number] = emit.hub(plan, hub_number)
     for plan in plans:
         emit.composer(plan, hub_ids.get(plan.number), action_ids.get(plan.number, {}))
+    emit.finish_logs()
 
     world.labels = {
         f"GR-{p.number}": p.label for p in plans if p.label is not FailureCode.F00_NO_FAULT

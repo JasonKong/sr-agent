@@ -19,3 +19,5 @@ evidence:
     where: {status: ERROR}
   - table: composer.referral_event
     where: {event: VALIDATION_FAILED, sub_type: [date_of_birth, synthetic_nhi]}
+  - table: log
+    where: {service: composer-web, error_code: VALIDATION_FAILED}
