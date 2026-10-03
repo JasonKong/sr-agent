@@ -14,12 +14,12 @@ SR-Agent is a learning project for **MCP**, **RAG** and **agents**. It runs enti
 
 ## Status
 
-🚧 Early development: M0 (foundation). See the [implementation plan](docs/DESIGN.md#10-implementation-plan-for-claude-code).
+🚧 M0 and M1 are complete: the simulated world is ready. Next is M2, the MCP server. See the [implementation plan](docs/DESIGN.md#10-implementation-plan-for-claude-code).
 
 | Milestone | Scope | State |
 | --- | --- | --- |
-| M0 | Workspace, tooling, CI | In progress |
-| M1 | Simulator: two systems, four legs, failure scenarios | — |
+| M0 | Workspace, tooling, CI | ✅ Done |
+| M1 | Simulator: two systems, four legs, failures, distractors, tickets and runbooks | ✅ Done |
 | M2 | MCP server | — |
 | M3 | Baseline agent and evaluation | — |
 | M4 | RAG over tickets and runbooks | — |
@@ -45,7 +45,8 @@ make install
 make check             # lint, type checks, unit tests
 make db-up             # Postgres 16 + pgvector
 make migrate
-make seed              # 2000 simulated referrals across both systems
+make seed              # 2000 referrals across both systems, logs, tickets, runbooks
+uv run sim case F07_CLINIC_PMS_AUTH_FAILED   # one labelled case and its evidence
 make test-integration
 ```
 
@@ -57,5 +58,6 @@ No results yet; the first numbers arrive with M3.
 
 - [Design document](docs/DESIGN.md)
 - [Architecture decision records](docs/adr/README.md)
+- Learning notes: [M0 foundation](docs/learning/m0-foundation.md), [M1 simulator](docs/learning/m1-simulator.md)
 
 All people, practices, clinics and vendors in this repository are fictional.
