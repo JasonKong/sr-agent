@@ -10,6 +10,7 @@ make check       # ruff check, ruff format --check, mypy (strict), pytest — mu
 make fmt         # ruff format + ruff check --fix
 make db-up       # start Postgres 16 + pgvector (needs .env: cp .env.example .env)
 make migrate     # apply SQL migrations (uv run sr-db migrate); make db-reset wipes local data
+make seed        # replace simulator data with the default world (uv run sim seed --help)
 make test-integration          # tests marked integration, against the local Postgres
 uv run pytest -m live          # tests that call a real model API (skipped by default)
 ```
@@ -26,6 +27,7 @@ CI (`.github/workflows/ci.yml`) runs `make check` and, against a Postgres servic
   - `agent` → `sr_agent`
   - `evals` → `sr_evals`
 - Tests live in `packages/<dir>/tests/`. Test file names must be unique across the repo: the tests directories have no `__init__.py`, and mypy and pytest import by file name.
+- Shared pytest fixtures live in `sr_db.testing` (for example `migrated`, a throwaway migrated database), loaded by the root `conftest.py`. Do not add another `conftest.py`.
 - `packages/web` (TypeScript) arrives in M6; `infra/` (AWS CDK) only in the optional M7.
 
 ## Working on a task

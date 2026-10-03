@@ -1,4 +1,7 @@
-"""Fixtures shared by the sr_db integration tests."""
+"""Pytest fixtures for integration tests in any package, loaded by the root conftest.py.
+
+Each test gets its own throwaway database, so tests never touch the development data.
+"""
 
 import uuid
 from collections.abc import Iterator

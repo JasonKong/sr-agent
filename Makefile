@@ -1,4 +1,4 @@
-.PHONY: install check lint typecheck test fmt db-up db-down db-reset migrate test-integration
+.PHONY: install check lint typecheck test fmt db-up db-down db-reset migrate seed test-integration
 
 install: ## Install all workspace packages and dev tools
 	uv sync
@@ -31,6 +31,9 @@ db-reset: ## Delete all local data and start an empty Postgres
 
 migrate: ## Apply pending SQL migrations
 	uv run sr-db migrate
+
+seed: ## Replace simulator data with the default generated world (DESIGN.md 3.6)
+	uv run sim seed
 
 test-integration: ## Tests that need the local Postgres (run make db-up first)
 	uv run pytest -m integration
