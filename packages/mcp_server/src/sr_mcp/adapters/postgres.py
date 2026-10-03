@@ -13,16 +13,25 @@ from psycopg_pool import ConnectionPool
 
 from sr_db.domain import COMPOSER_EVENT_LEG
 from sr_mcp.adapters.base import (
+    CallbackInfo,
     ClinicInfo,
     ComposerSide,
+    DeliveriesView,
+    DeliveryAttemptInfo,
+    DeliveryInfo,
     HubSide,
+    InboxFiling,
+    IntegrationInfo,
     PatientFields,
     PersonInfo,
     PracticeInfo,
     Recipient,
+    RecipientView,
     ReferralFilters,
     ReferralSummary,
     ReferralView,
+    ReturnPathView,
+    ReturnStep,
     TimelineEntry,
 )
 from sr_mcp.masking import FieldStatus, patient_ref
@@ -333,6 +342,135 @@ class PostgresReferralStore:
                       not ok)
             )  # fmt: skip
         return entries
+
+    # --- deliveries ----------------------------------------------------------------------------
+
+    def deliveries(self, referral_id: str) -> DeliveriesView | None:
+        with self._pool.connection() as conn:
+            composer, hub = self._resolve(conn, referral_id)
+            if composer is None and hub is None:
+                return None
+            composer_id = composer["id"] if composer else None
+            if hub is None:
+                return DeliveriesView(
+                    composer_id=composer_id, hub_referral_id=None, routing_mode=None,
+                    accepted_at=None, deliveries=[],
+                    note="The Hub has no record of this referral, so nothing was delivered.",
+                )  # fmt: skip
+            deliveries = conn.execute(
+                "SELECT id, channel, target_ref, status, last_error_code, updated_at"
+                " FROM hub.delivery WHERE hub_referral_id = %s ORDER BY id",
+                (hub["id"],),
+            ).fetchall()
+            attempts = conn.execute(
+                "SELECT a.id, a.delivery_id, a.attempt_no, a.http_status, a.error_code,"
+                " a.error_message, a.latency_ms, a.attempted_at"
+                " FROM hub.delivery_attempt a JOIN hub.delivery d ON d.id = a.delivery_id"
+                " WHERE d.hub_referral_id = %s ORDER BY a.delivery_id, a.attempt_no",
+                (hub["id"],),
+            ).fetchall()
+        by_delivery: dict[str, list[DeliveryAttemptInfo]] = {}
+        for a in attempts:
+            delivery_id = a.pop("delivery_id")
+            by_delivery.setdefault(delivery_id, []).append(DeliveryAttemptInfo(**a))
+        note: str | None = None
+        if not deliveries:
+            if hub["accepted_at"] is None:
+                note = "The Hub has not accepted this referral, so delivery has not started."
+            elif hub["routing_mode"] == "MANUAL":
+                note = "Routed MANUAL: the Hub does not deliver electronically to this clinic."
+        return DeliveriesView(
+            composer_id=composer_id,
+            hub_referral_id=hub["id"],
+            routing_mode=hub["routing_mode"],
+            accepted_at=hub["accepted_at"],
+            note=note,
+            deliveries=[
+                DeliveryInfo(**d, attempts=by_delivery.get(d["id"], [])) for d in deliveries
+            ],
+        )
+
+    # --- recipient -----------------------------------------------------------------------------
+
+    def recipient(self, clinic_id: str) -> RecipientView | None:
+        with self._pool.connection() as conn:
+            clinic = conn.execute(
+                "SELECT id, name, specialty_group, status, has_active_account FROM hub.clinic"
+                " WHERE id = %s",
+                (clinic_id,),
+            ).fetchone()
+            if clinic is None:
+                return None
+            specialists = conn.execute(
+                "SELECT id, name FROM hub.specialist WHERE clinic_id = %s ORDER BY id",
+                (clinic_id,),
+            ).fetchall()
+            integrations = conn.execute(
+                "SELECT id, vendor, auth_status, token_expires_at, endpoint_status, updated_at"
+                " FROM hub.clinic_integration WHERE clinic_id = %s ORDER BY id",
+                (clinic_id,),
+            ).fetchall()
+        return RecipientView(
+            clinic=ClinicInfo(**clinic),
+            routing_mode="ELECTRONIC" if clinic["has_active_account"] else "MANUAL",
+            specialists=[PersonInfo(**s) for s in specialists],
+            integrations=[IntegrationInfo(**i) for i in integrations],
+        )
+
+    # --- return path ---------------------------------------------------------------------------
+
+    def return_path(self, referral_id: str) -> ReturnPathView | None:
+        with self._pool.connection() as conn:
+            composer, hub = self._resolve(conn, referral_id)
+            if composer is None and hub is None:
+                return None
+            composer_id = composer["id"] if composer else None
+            if hub is None:
+                return ReturnPathView(
+                    composer_id=composer_id, hub_referral_id=None, steps=[],
+                    note="The Hub has no record of this referral, so nothing can come back.",
+                )  # fmt: skip
+            actions = conn.execute(
+                "SELECT id, action, actor_ref, occurred_at FROM hub.recipient_action"
+                " WHERE hub_referral_id = %s ORDER BY occurred_at, id",
+                (hub["id"],),
+            ).fetchall()
+            callbacks = conn.execute(
+                "SELECT id, action_id, attempt_no, http_status, status, attempted_at"
+                " FROM hub.return_callback WHERE hub_referral_id = %s ORDER BY attempt_no",
+                (hub["id"],),
+            ).fetchall()
+            filings = []
+            if composer is not None:
+                filings = conn.execute(
+                    "SELECT id, hub_action_ref, type, received_at, inbox_filing_status,"
+                    " filing_error FROM composer.inbound_response WHERE referral_id = %s",
+                    (composer["id"],),
+                ).fetchall()
+        by_action: dict[str, list[CallbackInfo]] = {}
+        for c in callbacks:
+            action_id = c.pop("action_id")
+            by_action.setdefault(action_id, []).append(CallbackInfo(**c))
+        filed: dict[str, InboxFiling] = {}
+        for f in filings:
+            action_ref = f.pop("hub_action_ref")
+            if action_ref is not None:
+                filed[action_ref] = InboxFiling(**f)
+        steps = [
+            ReturnStep(
+                action_id=a["id"],
+                action=a["action"],
+                actor_ref=a["actor_ref"],
+                occurred_at=a["occurred_at"],
+                callbacks=by_action.get(a["id"], []),
+                gp_inbox=filed.get(a["id"]),
+            )
+            for a in actions
+        ]
+        note = None if steps else "No recipient actions yet: nobody at the clinic has acted on it."
+        return ReturnPathView(
+            composer_id=composer_id, hub_referral_id=hub["id"], note=note, steps=steps
+        )
 
 
 def _with_sub_type(detail: str | None, sub_type: str | None) -> str | None:

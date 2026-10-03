@@ -36,4 +36,11 @@ def test_instructions_set_the_rules() -> None:
 
 def test_registered_tools() -> None:
     # Every tool must also be added to TOOL_INPUTS in the leak tests.
-    assert _list("tools") == ["get_referral", "find_referrals", "get_referral_timeline"]
+    assert _list("tools") == [
+        "get_referral",
+        "find_referrals",
+        "get_referral_timeline",
+        "get_deliveries",
+        "get_recipient",
+        "get_return_path",
+    ]

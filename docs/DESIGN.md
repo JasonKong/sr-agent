@@ -440,9 +440,9 @@ Purpose: read-only, privacy-safe access to both systems, built with the official
 | `find_referrals` | Any of: clinic (id or part of its name), GP practice (id or part of its name), Composer status, `with_errors`, `created_from` and `created_to` (UTC days, inclusive); `limit` up to 20 | Newest first: both ids, both statuses, error level, `has_error` (an error recorded in either system: a Composer error, a failed Hub file fetch or a failed delivery; silent problems record none), clinic and practice names, correlation id |
 | `get_referral` | `referral_id` (Composer `GR-…` or Hub `HR-…`, pattern-checked) | The linked view. `link` is `linked`, `composer_only` (the Hub has no record) or `hub_only`. It includes the Composer status, error level, times, practice and GP; the patient as a `PT-` reference with NHI and date-of-birth status; the Hub status, routing mode and times; the recipient clinic (with `has_active_account`) and specialist; and the correlation id |
 | `get_referral_timeline` | `referral_id` | Both systems in time order. Each entry has a system, leg, event, level, detail and a `record_id` to cite. Composer entries come from its events; Hub entries are milestones: received, file fetch, accepted and routed, each delivery's final state with its last error code, recipient actions and callbacks. Individual attempts are left to `get_deliveries` |
-| `get_deliveries` | `referral_id` | Each delivery channel with its status and attempts (HTTP status, error code, latency) |
-| `get_recipient` | `clinic_id` | Clinic status, active account, routing mode, specialists, and integrations (vendor, auth status, token expiry, endpoint health) |
-| `get_return_path` | `referral_id` | Specialist actions, return callbacks and GP inbox filing status |
+| `get_deliveries` | `referral_id` | One delivery per channel (`EMAIL`, `PORTAL`, and `CLINIC_PMS` for each integration), each with its status, last error code and every attempt (HTTP status, error code, message, latency). A delivery can fail with no attempts (`F07`). When there are no deliveries, `note` says why: the Hub has no record, has not accepted it, or routed it `MANUAL` |
+| `get_recipient` | `clinic_id` (`cln_…`, pattern-checked) | Clinic status and active account; the routing mode that follows (`ELECTRONIC` or `MANUAL`); specialists; each integration's vendor, auth status, token expiry, endpoint health and when it last changed |
+| `get_return_path` | `referral_id` | One step per recipient action in time order. Each step shows the Hub's callbacks to Composer and the response's GP-inbox filing (status and error). Downloads have neither. No steps means nobody at the clinic has acted |
 | `search_logs` | `referral_id` or `correlation_id`, optional service, level and time window, `limit` up to 200 | Matching log lines, newest first, with truncated messages |
 | `list_failed_referrals` | `since` (for example `2h`), optional leg | Recent failures grouped by leg, each with a short reason |
 | `search_knowledge` | `query`, optional `error_code`, `top_k` up to 5 | Matching ticket or runbook chunks with source ids and scores |
@@ -695,7 +695,7 @@ Each milestone ends with something to demonstrate and a learning note. Each task
 
 - [ ] T2.1 Server skeleton on the MCP SDK 2.x with `stdio`, adapter interfaces and fakes, the read-only database role (migration 0005), masking and the output guard, and leak tests that every tool must join.
 - [ ] T2.2 `get_referral` (cross-system resolution), `find_referrals` and `get_referral_timeline`, with contract tests of the SQL store against the simulator's ground truth.
-- [ ] T2.3 `get_deliveries`, `get_recipient` and `get_return_path`.
+- [ ] T2.3 `get_deliveries`, `get_recipient` and `get_return_path`, with contract tests against the simulator.
 - [ ] T2.4 `LogSource` (JSONL), `search_logs` and `list_failed_referrals`.
 - [ ] T2.5 Resources and the `diagnose_referral` prompt; Claude Desktop and Claude Code setup guide.
 - [ ] T2.6 Streamable HTTP transport with bearer-token auth.
