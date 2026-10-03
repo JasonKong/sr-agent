@@ -1,0 +1,51 @@
+# CLAUDE.md
+
+SR-Agent is a learning-first, local-first AI support agent that explains why a simulated GP-to-specialist referral failed. **`docs/DESIGN.md` is the source of truth**; read the sections a task names before changing code. Decisions and their reasons live in `docs/adr/`.
+
+## Commands
+
+```bash
+make install     # uv sync: all workspace packages and dev tools
+make check       # ruff check, ruff format --check, mypy (strict), pytest — must pass before a task is done
+make fmt         # ruff format + ruff check --fix
+uv run pytest -m live          # tests that call a real model API (skipped by default)
+uv run pytest -m integration   # tests that need local services such as Postgres (skipped by default)
+```
+
+## Layout
+
+- uv workspace; members are listed explicitly in the root `pyproject.toml`.
+- Python packages live in `packages/<dir>/src/<import_name>`:
+  - `simulator` → `sr_simulator`
+  - `mcp_server` → `sr_mcp`
+  - `agent` → `sr_agent`
+  - `evals` → `sr_evals`
+- Tests live in `packages/<dir>/tests/`. Test file names must be unique across the repo: the tests directories have no `__init__.py`, and mypy and pytest import by file name.
+- `packages/web` (TypeScript) arrives in M6; `infra/` (AWS CDK) only in the optional M7.
+
+## Working on a task
+
+- Implement one task (`T<id>` in DESIGN.md section 10) per branch and pull request. Use Conventional Commits.
+- First list the files you plan to create or change, and wait for approval.
+- Write failing tests first, then the code. Finish by running `make check` until it is green.
+- Summarise what changed, any decision that needs an ADR or a DESIGN.md update, and one point for the milestone's learning note in `docs/learning/`.
+- When a decision changes, update `docs/DESIGN.md` in the same pull request.
+
+## Conventions
+
+- Python 3.12, type hints everywhere, mypy strict. Validate data at boundaries with Pydantic; treat model output as untrusted input.
+- Configuration comes from environment variables, validated at start-up. `.env` is git-ignored and local-only.
+- Every data source goes through an adapter interface, never called directly from tool or agent code.
+- Logs are structured JSON with `correlation_id`. Patient names, dates of birth and NHI numbers never appear in logs, tool results or model input.
+- Unit tests never call a real model or AWS; use `FakeModel` and fake adapters. Mark real-model tests `@pytest.mark.live`.
+- Add a dependency to the package that uses it (`uv add --package <dist-name> <dep>`), never to the workspace root. The only exception is dev tools.
+
+## Public-repository boundary
+
+This repository is public, and all of its data is synthetic.
+
+- Never add code, schemas, table or column names, error strings, internal tool names, domain names, documents or data from any real organisation's systems. Borrow patterns, never identifiers.
+- Use only the fictional names defined in DESIGN.md section 3:
+  - systems: Composer and Hub;
+  - vendors: Kauri PMS, Harbour PMS, Summit PMS, Tasman Clinic, Ridgeline.
+- Never commit secrets or real-looking personal data.
