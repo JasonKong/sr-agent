@@ -204,7 +204,12 @@ Healthy data contains noise. An agent that pattern-matches on the first error it
 
 ### 3.6 Reproducibility
 
-`sim seed --seed 42 --anchor-time 2026-10-01T09:00:00+13:00` produces identical data on every run. All timestamps derive from the anchor time, never from the wall clock.
+`sim seed --seed 42 --anchor-time 2026-10-01T09:00:00+13:00` (the defaults, also `make seed`) produces byte-identical data on every run. A test compares an md5 fingerprint of every table across two seeds.
+
+- **Anchor time.** All timestamps derive from the anchor time, never from the wall clock. The anchor is "now" in the simulated world: anything scheduled after it has not happened yet, so recent referrals are still in progress.
+- **Independent random streams.** Every entity draws from its own stream, seeded by `sha256(seed, kind, index)` (`sr_simulator.rng`). Adding draws in one place, such as injecting a failure into one referral, never shifts the data generated anywhere else.
+- **Plan, then emit.** Each referral first draws every value for every leg in a fixed order (`ReferralPlan`, one method per leg). It then emits only the rows whose time is at or before the anchor. Draws never depend on where that cut falls, and a scenario (T1.3) replaces a single leg.
+- **Pinned Faker.** Names come from Faker (`en_NZ`), seeded per entity. Its version is pinned by `uv.lock`, because a Faker upgrade can change the generated names.
 
 ## 4. Architecture
 
@@ -345,7 +350,22 @@ Purpose: realistic, reproducible data for two systems, with labelled failures an
 - `sim seed --seed 42 --anchor-time … --practices 30 --clinics 40 --referrals 2000 --failure-rate 0.15 --distractor-rate 0.05` fills both schemas and writes logs, tickets and runbooks.
 - `sim create-case --scenario F07_CLINIC_PMS_AUTH_FAILED [--distractor]` creates one fresh case. It prints the Composer and Hub ids, the expected root cause and the expected evidence references, for evaluation.
 - Each scenario YAML describes the rows, events, log lines and ticket templates to inject for each system.
-- Faker with a fixed seed for people and organisations. Synthetic NHI numbers use a format that cannot collide with real NHI numbers; the format is chosen and documented in T1.2.
+- **People and organisations.**
+  - People's names come from Faker (`en_NZ`) with a seed per entity.
+  - Practice and clinic names are fictional, built from native tree and bird names. They avoid the vendor words in section 3.1.
+- **Synthetic NHI** is `SIM` plus four digits, for example `SIM0708`. Real NHI numbers never use the letters I or O, so these can never be real, and they are easy to detect when testing masking.
+- **Dates of birth** are raw `DD-MM-YYYY` text, as a PMS sends them.
+- **Healthy-world shape (T1.2, defaults):**
+  - **Practices:** 30, with vendors split Kauri 50%, Harbour 30% and Summit 20%. Each has 2–8 users (80% GPs) and one valid PMS connection.
+  - **Clinics:** 40, with 1–6 specialists each.
+    - About 90% have an active account. Healthy referrals go only to those clinics; clinics without an account are kept for `F06`.
+    - About 60% of clinics with an account have one PMS integration (Kauri 40%, Tasman 35%, Ridgeline 25%). Integrations are valid and healthy.
+  - **Referrals:** 2000, created in business hours (Pacific/Auckland) over the 90 days before the anchor. 70% name a specialist.
+    - Each referral has 0–4 source documents of 50 KB to 2 MB each.
+    - **Leg timings:** PDF within seconds; Hub hand-off within about 1 s; acceptance within about 10 s; delivery to email, portal and every clinic PMS integration within a minute; viewed within 0–3 business days; responded within 0–5 business days.
+    - **Outcomes:** 85% acknowledged, 10% declined, 5% a message followed by an acknowledgement.
+    - **Return leg:** every response except a download is returned to Composer and filed in the GP inbox.
+  - **Hub numbering** has gaps, because the Hub also receives referrals from other channels. A Hub id therefore cannot be guessed from a Composer id.
 - At least 300 historical tickets. They are written in varied styles: terse, chatty, wrong guesses later corrected, and mentions of other referrals. Each has a resolution and a labelled root cause.
 - One runbook per failure code, plus general runbooks: how routing works, the four legs, and vendor quirks.
 

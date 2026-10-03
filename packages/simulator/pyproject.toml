@@ -3,8 +3,17 @@ name = "sr-simulator"
 version = "0.1.0"
 description = "Reproducible simulated data for the Composer and Hub referral systems, with labelled failures."
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "faker>=40.40.0",
+    "sr-db",
+]
+
+[project.scripts]
+sim = "sr_simulator.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.12.22,<0.13.0"]
 build-backend = "uv_build"
+
+[tool.uv.sources]
+sr-db = { workspace = true }

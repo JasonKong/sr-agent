@@ -45,6 +45,7 @@ make install
 make check             # lint, type checks, unit tests
 make db-up             # Postgres 16 + pgvector
 make migrate
+make seed              # 2000 simulated referrals across both systems
 make test-integration
 ```
 
