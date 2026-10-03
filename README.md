@@ -14,13 +14,13 @@ SR-Agent is a learning project for **MCP**, **RAG** and **agents**. It runs enti
 
 ## Status
 
-🚧 M0 and M1 are complete, and M2 (the MCP server) is nearly done: 8 read-only tools, runbook resources and a diagnosis prompt, usable from Claude Code today. See the [implementation plan](docs/DESIGN.md#10-implementation-plan-for-claude-code).
+🚧 M0–M2 are complete: the simulated world and the MCP server (8 read-only tools, runbook resources, a diagnosis prompt, stdio and HTTP). Next is M3, the baseline agent and evaluation. See the [implementation plan](docs/DESIGN.md#10-implementation-plan-for-claude-code).
 
 | Milestone | Scope | State |
 | --- | --- | --- |
 | M0 | Workspace, tooling, CI | ✅ Done |
 | M1 | Simulator: two systems, four legs, failures, distractors, tickets and runbooks | ✅ Done |
-| M2 | MCP server | — |
+| M2 | MCP server | ✅ Done |
 | M3 | Baseline agent and evaluation | — |
 | M4 | RAG over tickets and runbooks | — |
 | M5 | Agent hardening | — |
@@ -63,6 +63,6 @@ No results yet; the first numbers arrive with M3.
 
 - [Design document](docs/DESIGN.md)
 - [Architecture decision records](docs/adr/README.md)
-- Learning notes: [M0 foundation](docs/learning/m0-foundation.md), [M1 simulator](docs/learning/m1-simulator.md)
+- Learning notes: [M0 foundation](docs/learning/m0-foundation.md), [M1 simulator](docs/learning/m1-simulator.md), [M2 MCP server](docs/learning/m2-mcp-server.md)
 
 All people, practices, clinics and vendors in this repository are fictional.
