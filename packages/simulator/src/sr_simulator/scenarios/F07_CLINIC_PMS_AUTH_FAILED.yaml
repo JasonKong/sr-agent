@@ -1,0 +1,20 @@
+code: F07_CLINIC_PMS_AUTH_FAILED
+leg: deliver
+title: Clinic PMS authorisation failed
+cs_hears: "The specialist says it never arrived in their system."
+root_cause: >
+  The clinic's PMS token expired, so the push failed during authentication, before any
+  delivery attempt was recorded. Email and portal delivery still worked.
+recommended_action: Ask the clinic to re-authorise its PMS connection, then resend.
+escalate_to_engineering: false
+inject:
+  outcome: clinic_pms_auth_failed
+expect:
+  composer_status: [RECEIVED]
+  hub: present
+  hub_status: [NEW]
+evidence:
+  - table: hub.clinic_integration
+    where: {auth_status: EXPIRED}
+  - table: hub.delivery
+    where: {channel: CLINIC_PMS, status: FAILED, last_error_code: AUTH_TOKEN_EXPIRED}

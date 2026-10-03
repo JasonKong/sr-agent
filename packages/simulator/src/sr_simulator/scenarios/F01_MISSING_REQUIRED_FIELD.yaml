@@ -1,0 +1,21 @@
+code: F01_MISSING_REQUIRED_FIELD
+leg: compose
+title: Missing or malformed required field
+cs_hears: "It won't submit, or it failed to generate."
+root_cause: >
+  A required patient field is empty or malformed, such as the date of birth or the NHI number,
+  so Composer's validation rejected the referral before generating it.
+recommended_action: Ask the GP to fix the field in their PMS and submit the referral again.
+escalate_to_engineering: false
+inject:
+  outcome: validation_failed
+  params:
+    variants: [dob_empty, dob_malformed, nhi_missing]
+expect:
+  composer_status: [ERROR]
+  hub: absent
+evidence:
+  - table: composer.referral
+    where: {status: ERROR}
+  - table: composer.referral_event
+    where: {event: VALIDATION_FAILED, sub_type: [date_of_birth, synthetic_nhi]}

@@ -178,18 +178,33 @@ Each scenario has a stable code. The code is the ground truth for evaluation. Ea
 | --- | --- | --- | --- | --- | --- |
 | `F00_NO_FAULT` | — | "Did the specialist get it?" | Nothing wrong; delivered and acknowledged, or still within the normal processing window | Complete timeline in both systems, or a recent send within the expected window | Confirm the status; no action needed |
 | `F01_MISSING_REQUIRED_FIELD` | Compose | "It won't submit" or "it failed to generate" | A required field is empty or malformed, such as date of birth | `referral_event` naming the field; `ERROR` status; the field shows as empty or invalid (value masked) | Ask the GP to fix the field and resubmit |
-| `F02_PDF_TOO_LARGE` | Compose | "It failed to generate" | Rendered PDF exceeds the size limit even after the compression retry | `source_document.size_bytes` totals; generation error with the size; compression retry event | Ask the GP to remove or reduce attached documents |
+| `F02_PDF_TOO_LARGE` | Compose | "It failed to generate" | Attached GP PMS documents push the PDF past the 15 MB limit, even after the compression retry | `PDF_TOO_LARGE`, `PDF_COMPRESSION_RETRY` and `PDF_GENERATION_FAILED` events; large `source_document` sizes; status `ERROR` | Ask the GP to remove or reduce attached documents |
 | `F03_SOURCE_DOC_SKIPPED` | Compose | "The specialist says pages are missing" | One GP PMS document failed to download and was silently left out; everything else looks healthy | A `source_document` with `fetch_status = FAILED`; a WARN log line; all statuses otherwise normal | Ask the GP to resend with the document attached manually; escalate if the vendor issue repeats |
-| `F04_HUB_UNAVAILABLE` | Ingest | "It's been stuck on processing" | The Hub returned 5xx on hand-off, and the auto-resend failed as well | `hub_send` rows with 5xx; Composer status `SUBMITTED` or `GENERATED`; no matching `hub_referral` | Escalate to engineering with the correlation id; resend once the Hub is healthy |
-| `F05_ATTACHMENT_FETCH_FAILED` | Ingest | "Specialist never got it" | The Hub received the referral but could not fetch the PDF (signed URL expired or 4xx), so it was never accepted | `hub_referral` without `accepted_at`; `hub_file.fetch_status = FAILED`; hub-worker error log | Resend from Composer; escalate if it repeats |
+| `F04_HUB_UNAVAILABLE` | Ingest | "It's been stuck on processing" | The Hub returned 5xx on hand-off, and the auto-resend 55–95 minutes later failed as well | Two `hub_send` rows with 5xx; `HUB_SEND_FAILED` and `AUTO_RESEND` events; Composer status `GENERATED`; no matching `hub_referral` | Escalate to engineering with the correlation id; resend once the Hub is healthy |
+| `F05_ATTACHMENT_FETCH_FAILED` | Ingest | "Specialist never got it" | The Hub received the referral but could not fetch the PDF (signed URL expired or 404), so it was never accepted; Composer's auto-resend hit the same problem | `hub_referral` without `accepted_at`; `hub_file.fetch_status = FAILED` with the error; `CHECK_RECEIVED` and `AUTO_RESEND` events; no deliveries | Resend from Composer; escalate if it repeats |
 | `F06_MANUAL_ROUTING` | Ingest | "Specialist never got it" | The recipient clinic has no active account, so the referral was routed as manual and never delivered electronically | `routing_mode = MANUAL`; `clinic.has_active_account = false`; no `delivery` rows | Tell the GP to send it another way; suggest the clinic activates an account |
-| `F07_CLINIC_PMS_AUTH_FAILED` | Deliver | "Specialist says it never arrived in their system" | The clinic PMS token expired; the push failed during authentication, before any attempt was recorded | `clinic_integration.auth_status = EXPIRED`; `CLINIC_PMS` delivery `FAILED` with **no** `delivery_attempt` rows; an auth error log line only | Ask the clinic to re-authorise its PMS connection, then resend |
-| `F08_CLINIC_PMS_TIMEOUT` | Deliver | "Specialist hasn't received it yet" | The clinic PMS endpoint timed out and retries were exhausted | Three `delivery_attempt` rows with timeouts; `endpoint_status = DEGRADED` | Check the vendor's status; resend once healthy |
-| `F09_CLINIC_IMPORT_REJECTED` | Deliver | "It arrived but didn't go into the patient's file" | The clinic PMS rejected the import with a typed reason, such as patient name mismatch or incomplete patient details | `delivery_attempt` with HTTP 409 or 422 and an `error_code` such as `PATIENT_MISMATCH` | Ask the clinic to match the patient manually in its PMS |
-| `F10_DELIVERED_NOT_ACTIONED` | Deliver | "Specialist says they never got it" | Delivered successfully, but nobody at the clinic has viewed or actioned it | All deliveries `SUCCEEDED`; no `recipient_action`, or `VIEWED` with no response after N business days | Share proof of delivery; ask the clinic to check its inbox or portal |
-| `F11_RESPONSE_NOT_FILED` | Return | "The specialist never replied" | The specialist did respond, but filing it into the GP PMS inbox failed | `recipient_action = ACKNOWLEDGED` or `DECLINED`; `return_callback` succeeded; `inbound_response.inbox_filing_status = FAILED` | Tell the GP the response exists; ask them to check their PMS connection; resend the response |
+| `F07_CLINIC_PMS_AUTH_FAILED` | Deliver | "Specialist says it never arrived in their system" | The clinic PMS token expired at time T; every push after T failed during authentication, before any attempt was recorded | `clinic_integration.auth_status = EXPIRED` with `token_expires_at` = T; `CLINIC_PMS` delivery `FAILED` with `last_error_code = AUTH_TOKEN_EXPIRED` and **no** `delivery_attempt` rows; often other recent referrals to the same clinic fail the same way | Ask the clinic to re-authorise its PMS connection, then resend |
+| `F08_CLINIC_PMS_TIMEOUT` | Deliver | "Specialist hasn't received it yet" | The clinic PMS endpoint degraded at time T; pushes after T time out and retries run out | `endpoint_status = DEGRADED` since T; up to three `delivery_attempt` rows with `error_code = TIMEOUT`; delivery `last_error_code = TIMEOUT` (`FAILED`, or `PENDING` while retries remain) | Check the vendor's status; resend once healthy |
+| `F09_CLINIC_IMPORT_REJECTED` | Deliver | "It arrived but didn't go into the patient's file" | The clinic PMS rejected the import: HTTP 409 `PATIENT_MISMATCH` or 422 `PATIENT_INCOMPLETE` | `CLINIC_PMS` delivery `FAILED`; one `delivery_attempt` with the status and error code; the specialist may have viewed it in the portal | Ask the clinic to match the patient manually in its PMS |
+| `F10_DELIVERED_NOT_ACTIONED` | Deliver | "Specialist says they never got it" | Delivered successfully, but nobody at the clinic has acted on it for more than 7 days | All deliveries `SUCCEEDED`; no `recipient_action`, or only `VIEWED`; accepted more than 7 days before the anchor time | Share proof of delivery; ask the clinic to check its inbox or portal |
+| `F11_RESPONSE_NOT_FILED` | Return | "The specialist never replied" | The specialist did respond, but filing it into the GP PMS inbox failed | `recipient_action = ACKNOWLEDGED` or `DECLINED`; `return_callback` succeeded; `inbound_response.inbox_filing_status = FAILED` with `filing_error`; `RESPONSE_FILING_FAILED` event | Tell the GP the response exists; ask them to check their PMS connection; resend the response |
 
 `F00_NO_FAULT` exists so evaluation catches an agent that invents a problem when there is none.
+
+**How failures are injected (T1.3).** Each code has a scenario file in `packages/simulator/src/sr_simulator/scenarios/`. The file and the code split the work:
+
+- **The YAML says *what* the scenario is:**
+  - the leg, how CS hears about it, the root cause and the recommended action;
+  - the outcome to inject, with its parameters;
+  - the statuses to expect;
+  - the evidence the agent should cite: rows linked to the case, filtered by column values.
+
+  Loading validates outcome names, legs, parameters, tables and columns against the code.
+- **`faults.py` says *how* it happens.** An outcome replaces the healthy result of one leg in the referral's plan.
+- **Clinic-level faults.** `F07` and `F08` change a clinic integration from a time T. Every CLINIC_PMS delivery to that clinic after T fails, so several recent referrals can share the label. A clinic holds at most one clinic-level fault.
+- **Fault streams.** Fault draws come from their own streams, so a referral's healthy draws never change.
+- **Distribution.** `--failure-rate` (default 0.15) is shared evenly across `F01`–`F11`. A code with too few eligible referrals gets fewer cases; with the defaults, `F08` is limited by the number of clinics with integrations.
+- **Ground truth stays out of the database.** `sim seed` writes it to `var/sim/labels.json`, because the MCP server must never be able to read it. Referrals not listed there are `F00`.
 
 ### 3.5 Distractors
 
@@ -349,7 +364,7 @@ Purpose: realistic, reproducible data for two systems, with labelled failures an
 - SQL migrations (in `sr_db`, section 7.0) for the `composer`, `hub` and `knowledge` schemas in section 3.3.
 - `sim seed --seed 42 --anchor-time … --practices 30 --clinics 40 --referrals 2000 --failure-rate 0.15 --distractor-rate 0.05` fills both schemas and writes logs, tickets and runbooks.
 - `sim create-case --scenario F07_CLINIC_PMS_AUTH_FAILED [--distractor]` creates one fresh case. It prints the Composer and Hub ids, the expected root cause and the expected evidence references, for evaluation.
-- Each scenario YAML describes the rows, events, log lines and ticket templates to inject for each system.
+- Each scenario YAML describes the scenario, the outcome to inject, the expected statuses and the expected evidence (section 3.4). Log lines (T1.4) and ticket templates (T1.6) are added to the same files.
 - **People and organisations.**
   - People's names come from Faker (`en_NZ`) with a seed per entity.
   - Practice and clinic names are fictional, built from native tree and bird names. They avoid the vendor words in section 3.1.

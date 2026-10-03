@@ -1,0 +1,21 @@
+code: F06_MANUAL_ROUTING
+leg: ingest
+title: Routed for manual delivery
+cs_hears: "The specialist never got it."
+root_cause: >
+  The receiving clinic has no active account, so the Hub routed the referral as manual and
+  never delivered it electronically.
+recommended_action: >
+  Tell the GP to send the referral another way, and suggest the clinic activates an account.
+escalate_to_engineering: false
+inject:
+  outcome: manual_routing
+expect:
+  composer_status: [RECEIVED]
+  hub: present
+  hub_status: [NEW]
+evidence:
+  - table: hub.hub_referral
+    where: {routing_mode: MANUAL}
+  - table: hub.clinic
+    where: {has_active_account: false}

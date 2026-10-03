@@ -43,6 +43,7 @@ CI (`.github/workflows/ci.yml`) runs `make check` and, against a Postgres servic
 - Python 3.12, type hints everywhere, mypy strict. Validate data at boundaries with Pydantic; treat model output as untrusted input.
 - Configuration comes from environment variables, validated at start-up. `.env` is git-ignored and local-only.
 - Every data source goes through an adapter interface, never called directly from tool or agent code.
+- Failure scenarios: one YAML per failure code in `packages/simulator/src/sr_simulator/scenarios/`, with the mechanics in `faults.py`. Ground-truth labels go to `var/sim/labels.json`, never to the database.
 - Schema changes are new files in `packages/db/src/sr_db/migrations/` named `NNNN_lowercase_words.sql`. Never edit a migration that has been applied; the runner rejects it.
 - Integration tests create their own throwaway database; never write test data into the development database.
 - Logs are structured JSON with `correlation_id`. Patient names, dates of birth and NHI numbers never appear in logs, tool results or model input.

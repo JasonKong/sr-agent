@@ -1,0 +1,25 @@
+code: F08_CLINIC_PMS_TIMEOUT
+leg: deliver
+title: Clinic PMS timed out
+cs_hears: "The specialist hasn't received it yet."
+root_cause: >
+  The clinic's PMS endpoint stopped responding in time, and the Hub's retries ran out.
+recommended_action: Check the PMS vendor's status, and resend once the endpoint is healthy.
+escalate_to_engineering: false
+inject:
+  outcome: clinic_pms_timeout
+  params:
+    attempts: 3
+    timeout_seconds: 30
+    retry_delays_seconds: [60, 300]
+expect:
+  composer_status: [RECEIVED]
+  hub: present
+  hub_status: [NEW]
+evidence:
+  - table: hub.clinic_integration
+    where: {endpoint_status: DEGRADED}
+  - table: hub.delivery
+    where: {channel: CLINIC_PMS, last_error_code: TIMEOUT}
+  - table: hub.delivery_attempt
+    where: {error_code: TIMEOUT}

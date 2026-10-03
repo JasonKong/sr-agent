@@ -1,0 +1,21 @@
+code: F02_PDF_TOO_LARGE
+leg: compose
+title: Referral PDF too large
+cs_hears: "It failed to generate."
+root_cause: >
+  The documents attached from the GP PMS made the referral PDF larger than the 15 MB limit,
+  and it was still too large after the compression retry.
+recommended_action: Ask the GP to remove or reduce the attached documents and submit again.
+escalate_to_engineering: false
+inject:
+  outcome: pdf_too_large
+  params:
+    limit_bytes: 15000000
+expect:
+  composer_status: [ERROR]
+  hub: absent
+evidence:
+  - table: composer.referral_event
+    where: {event: PDF_COMPRESSION_RETRY}
+  - table: composer.referral_event
+    where: {event: PDF_GENERATION_FAILED}

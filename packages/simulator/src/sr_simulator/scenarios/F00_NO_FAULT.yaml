@@ -1,0 +1,16 @@
+code: F00_NO_FAULT
+leg: none
+title: No fault
+cs_hears: "Did the specialist get it?"
+root_cause: >
+  Nothing is wrong. The referral was delivered and acknowledged, or it is still within the
+  normal processing window.
+recommended_action: Confirm the current status to the customer; no action is needed.
+escalate_to_engineering: false
+inject: {}
+expect:
+  composer_status: [DRAFT, SUBMITTED, GENERATED, SENT, RECEIVED, ACKNOWLEDGED, DECLINED]
+  hub: any
+evidence:
+  - table: composer.referral
+    where: {error_level: NONE}

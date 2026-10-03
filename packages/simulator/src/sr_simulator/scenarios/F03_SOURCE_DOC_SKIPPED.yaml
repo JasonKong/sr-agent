@@ -1,0 +1,24 @@
+code: F03_SOURCE_DOC_SKIPPED
+leg: compose
+title: Source document silently skipped
+cs_hears: "The specialist says pages are missing."
+root_cause: >
+  One document could not be downloaded from the GP PMS and was left out of the PDF without an
+  error. Everything else about the referral looks healthy.
+recommended_action: >
+  Ask the GP to send the missing document to the specialist directly; escalate if the same PMS
+  keeps failing to supply documents.
+escalate_to_engineering: false
+inject:
+  outcome: source_doc_skipped
+  params:
+    errors:
+      - HTTP 406 from the GP PMS document endpoint
+      - Timed out after 30 s fetching the document
+expect:
+  composer_status: [RECEIVED, ACKNOWLEDGED, DECLINED]
+  hub: present
+  hub_status: [VIEWED, ACKNOWLEDGED, DECLINED]
+evidence:
+  - table: composer.source_document
+    where: {fetch_status: FAILED}

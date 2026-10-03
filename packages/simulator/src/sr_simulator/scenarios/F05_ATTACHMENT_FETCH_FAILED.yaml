@@ -1,0 +1,24 @@
+code: F05_ATTACHMENT_FETCH_FAILED
+leg: ingest
+title: Hub could not fetch the referral PDF
+cs_hears: "The specialist never got it."
+root_cause: >
+  The Hub received the referral but could not download its PDF from Composer, so it never
+  accepted it. Composer's automatic resend hit the same problem.
+recommended_action: Resend the referral from Composer; escalate if it fails again.
+escalate_to_engineering: false
+inject:
+  outcome: attachment_fetch_failed
+  params:
+    errors:
+      - "HTTP 403: signed download URL has expired"
+      - "HTTP 404: document not found at download URL"
+expect:
+  composer_status: [SENT]
+  hub: present
+  hub_status: [NEW]
+evidence:
+  - table: hub.hub_file
+    where: {fetch_status: FAILED}
+  - table: composer.referral_event
+    where: {event: AUTO_RESEND}

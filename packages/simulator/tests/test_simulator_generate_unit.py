@@ -25,7 +25,7 @@ from sr_simulator.generate import generate
 from sr_simulator.rows import World
 
 NZ = ZoneInfo("Pacific/Auckland")
-SMALL = SimConfig(seed=7, practices=6, clinics=8, referrals=300)
+SMALL = SimConfig(seed=7, practices=6, clinics=8, referrals=300, failure_rate=0.0)
 
 
 @pytest.fixture(scope="module")

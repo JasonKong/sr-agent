@@ -1,0 +1,24 @@
+code: F10_DELIVERED_NOT_ACTIONED
+leg: respond
+title: Delivered but not actioned
+cs_hears: "The specialist says they never got it."
+root_cause: >
+  Every delivery succeeded, but nobody at the clinic has acted on the referral for more than a
+  week; at most it has been viewed.
+recommended_action: >
+  Share the proof of delivery, and ask the clinic to check its inbox, portal and PMS.
+escalate_to_engineering: false
+inject:
+  outcome: no_response
+  params:
+    viewed_share: 0.5
+    min_age_days: 7
+expect:
+  composer_status: [RECEIVED]
+  hub: present
+  hub_status: [NEW, VIEWED]
+evidence:
+  - table: hub.delivery
+    where: {status: SUCCEEDED}
+  - table: hub.hub_referral
+    where: {status: [NEW, VIEWED]}

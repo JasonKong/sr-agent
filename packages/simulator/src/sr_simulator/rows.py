@@ -20,6 +20,7 @@ from sr_db.domain import (
     EndpointStatus,
     ErrorLevel,
     EventLevel,
+    FailureCode,
     FetchStatus,
     GpPmsVendor,
     GpUserRole,
@@ -258,6 +259,9 @@ class World:
     delivery_attempts: list[DeliveryAttempt] = field(default_factory=list)
     recipient_actions: list[RecipientAction] = field(default_factory=list)
     return_callbacks: list[ReturnCallback] = field(default_factory=list)
+    # Ground truth, never written to the database: Composer id -> injected failure code.
+    # Referrals without an entry are F00_NO_FAULT.
+    labels: dict[str, FailureCode] = field(default_factory=dict)
 
     def tables(self) -> list[tuple[str, Sequence[DataclassInstance]]]:
         """(qualified table name, rows) pairs, parents before children."""
@@ -281,3 +285,25 @@ class World:
             ("hub.recipient_action", self.recipient_actions),
             ("hub.return_callback", self.return_callbacks),
         ]
+
+
+ROW_TYPES: dict[str, type[DataclassInstance]] = {
+    "composer.gp_practice": GpPractice,
+    "composer.gp_user": GpUser,
+    "composer.pms_connection": PmsConnection,
+    "composer.patient_snapshot": PatientSnapshot,
+    "composer.referral": Referral,
+    "composer.referral_event": ReferralEvent,
+    "composer.source_document": SourceDocument,
+    "composer.hub_send": HubSend,
+    "composer.inbound_response": InboundResponse,
+    "hub.clinic": Clinic,
+    "hub.specialist": Specialist,
+    "hub.clinic_integration": ClinicIntegration,
+    "hub.hub_referral": HubReferral,
+    "hub.hub_file": HubFile,
+    "hub.delivery": Delivery,
+    "hub.delivery_attempt": DeliveryAttempt,
+    "hub.recipient_action": RecipientAction,
+    "hub.return_callback": ReturnCallback,
+}
