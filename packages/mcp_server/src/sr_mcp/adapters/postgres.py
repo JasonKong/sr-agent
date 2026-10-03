@@ -20,6 +20,7 @@ from sr_mcp.adapters.base import (
     DeliveryAttemptInfo,
     DeliveryInfo,
     FailedReferral,
+    HandOffAttempt,
     HubSide,
     InboxFiling,
     IntegrationInfo,
@@ -33,6 +34,7 @@ from sr_mcp.adapters.base import (
     ReferralView,
     ReturnPathView,
     ReturnStep,
+    SourceDocumentInfo,
     TimelineEntry,
 )
 from sr_mcp.masking import FieldStatus, patient_ref
@@ -242,6 +244,19 @@ class PostgresReferralStore:
                 "SELECT id, name FROM hub.specialist WHERE id = %s", (specialist_id,)
             ).fetchone()
             patient = self._patient_fields(conn, composer["patient_id"]) if composer else None
+            documents: list[Row] = []
+            hand_offs: list[Row] = []
+            if composer is not None:
+                documents = conn.execute(
+                    "SELECT id, title, size_bytes, fetch_status, fetch_error"
+                    " FROM composer.source_document WHERE referral_id = %s ORDER BY id",
+                    (composer["id"],),
+                ).fetchall()
+                hand_offs = conn.execute(
+                    "SELECT id, attempt_no, http_status, error_message, attempted_at"
+                    " FROM composer.hub_send WHERE referral_id = %s ORDER BY attempt_no",
+                    (composer["id"],),
+                ).fetchall()
 
         composer_side = None
         if composer is not None:
@@ -265,6 +280,8 @@ class PostgresReferralStore:
                     role=composer["gp_user_role"],
                 ),
                 patient=patient,
+                source_documents=[SourceDocumentInfo(**d) for d in documents],
+                hand_offs=[HandOffAttempt(**h) for h in hand_offs],
             )
         hub_side = None
         if hub is not None:

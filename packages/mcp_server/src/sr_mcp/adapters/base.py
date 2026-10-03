@@ -48,6 +48,26 @@ class ClinicInfo(_Record):
     has_active_account: bool
 
 
+class SourceDocumentInfo(_Record):
+    """A document Composer pulled from the GP's PMS into the referral PDF."""
+
+    id: str
+    title: str
+    size_bytes: int
+    fetch_status: str
+    fetch_error: str | None
+
+
+class HandOffAttempt(_Record):
+    """One attempt by Composer to send the referral to the Hub."""
+
+    id: str
+    attempt_no: int
+    http_status: int | None
+    error_message: str | None
+    attempted_at: datetime
+
+
 class ComposerSide(_Record):
     id: str
     status: str
@@ -59,6 +79,8 @@ class ComposerSide(_Record):
     practice: PracticeInfo
     gp_user: PersonInfo
     patient: PatientFields
+    source_documents: list[SourceDocumentInfo] = []
+    hand_offs: list[HandOffAttempt] = []
 
 
 class HubSide(_Record):
@@ -236,6 +258,17 @@ class FailedReferral(_Record):
     clinic_name: str | None
 
 
+class RunbookSummary(_Record):
+    slug: str
+    error_code: str | None  # None for general guides
+    title: str
+
+
+class RunbookPage(RunbookSummary):
+    body_markdown: str
+    updated_at: datetime
+
+
 class KnowledgeHit(_Record):
     source_type: Literal["ticket", "runbook"]
     source_id: str
@@ -292,6 +325,12 @@ class LogSource(Protocol):
 
 
 class KnowledgeSearch(Protocol):
-    """Search over past tickets and runbooks (T4.2)."""
+    """Runbooks, and search over past tickets and runbooks (search arrives in T4.2)."""
 
     def search(self, query: str, *, error_code: str | None, top_k: int) -> list[KnowledgeHit]: ...
+
+    def list_runbooks(self) -> list[RunbookSummary]: ...
+
+    def runbook(self, key: str) -> RunbookPage | None:
+        """By failure code (F07_...) or slug (guide-four-legs)."""
+        ...

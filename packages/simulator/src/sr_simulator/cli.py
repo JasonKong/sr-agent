@@ -12,7 +12,7 @@ import psycopg
 
 from sr_db.domain import FailureCode
 from sr_db.settings import DatabaseSettings
-from sr_simulator.case_rows import case_rows, find_evidence
+from sr_simulator.case_rows import case_rows, expected_evidence
 from sr_simulator.config import DEFAULT_ANCHOR, SimConfig
 from sr_simulator.distractors import KINDS
 from sr_simulator.generate import generate
@@ -134,15 +134,10 @@ def _case(args: argparse.Namespace) -> int:
     rows = case_rows(world, referral_id)
     spec = load_scenarios()[code]
     distractor = load_distractors()[kind] if kind else None
-    items = [(item, "scenario") for item in spec.evidence]
-    items += [(item, "distractor") for item in (distractor.evidence if distractor else [])]
-    evidence = []
-    for item, source in items:
-        for row in find_evidence(rows, item):
-            record_id = row.id  # type: ignore[attr-defined]
-            evidence.append(
-                {"table": item.table, "record_id": record_id, "where": item.where, "source": source}
-            )
+    evidence = [
+        {"table": e.table, "record_id": e.record_id, "source": e.source}
+        for e in expected_evidence(world, referral_id, kind)
+    ]
     result = {
         "code": code.value,
         "pick": args.pick,

@@ -8,7 +8,7 @@ from mcp.server import MCPServer
 
 from sr_mcp import __version__
 from sr_mcp.deps import Deps
-from sr_mcp.tools import delivery, logs, referrals
+from sr_mcp.tools import delivery, logs, referrals, runbooks
 
 INSTRUCTIONS = """\
 Read-only tools over a simulated GP-to-specialist referral platform, for diagnosing why a
@@ -33,6 +33,7 @@ TOOL_GROUPS: list[Callable[[MCPServer, Deps], None]] = [
     referrals.register,
     delivery.register,
     logs.register,
+    runbooks.register,  # resources and the diagnose_referral prompt
 ]
 
 
