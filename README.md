@@ -1,5 +1,7 @@
 # SR-Agent
 
+[![CI](https://github.com/JasonKong/sr-agent/actions/workflows/ci.yml/badge.svg)](https://github.com/JasonKong/sr-agent/actions/workflows/ci.yml)
+
 An AI support agent that tells a client-service team member, in plain English and within seconds, why a GP-to-specialist referral failed or was never received — with the evidence to prove it.
 
 > "The specialist at Kowhai Orthopaedics says they never got GR-10234. Why?"

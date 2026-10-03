@@ -315,7 +315,15 @@ Purpose: a skeleton that lints, type-checks and tests before any feature code ex
 - uv workspace with the Python packages in section 6; pnpm only once the web console starts.
 - `docker-compose.yml` with Postgres 16 and pgvector.
 - A shared `sr_db` package that every component uses for the database: `DATABASE_URL` settings validated at start-up, and a small forward-only runner for plain SQL migrations (`sr-db migrate`). The runner records a checksum per file, applies each file in its own transaction under an advisory lock, and refuses to run if an applied file was edited. All migrations live in `packages/db/src/sr_db/migrations/`, whichever component owns the tables.
-- GitHub Actions `ci.yml`: lint, type checks and unit tests for changed packages.
+- GitHub Actions `ci.yml` on every pull request and on pushes to `main`, with two jobs:
+  - `check` runs `make check`.
+  - `integration` runs migrations and integration tests against a `pgvector/pgvector:pg16` service container.
+  - The whole workspace is checked on every run. While CI takes seconds, path filtering adds complexity and can miss cross-package effects; revisit if CI exceeds about 5 minutes.
+- CI hardening for a public repository:
+  - `contents: read` permissions only, and no secrets, so pull requests from forks run safely.
+  - Third-party actions are pinned to commit SHAs.
+  - `UV_LOCKED=1` fails the run when `uv.lock` is stale.
+  - Dependabot updates actions and uv dependencies weekly.
 - `CLAUDE.md` and a `README.md` skeleton. ADRs 0001 (languages) and 0002 (local-first runtime) are already written.
 
 Acceptance: `make check` passes; `make db-up && make migrate` succeeds and a second `make migrate` applies nothing; `make test-integration` passes; CI is green on a pull request.
@@ -571,7 +579,7 @@ Each milestone ends with something to demonstrate and a learning note. Each task
 
 - [ ] T0.1 Scaffold the uv workspace, Ruff, mypy and pytest; add `CLAUDE.md` and the README skeleton.
 - [ ] T0.2 `docker-compose.yml` with Postgres and pgvector; the `sr_db` package with settings and the migration runner.
-- [ ] T0.3 CI workflow: lint, type checks and unit tests for changed packages.
+- [ ] T0.3 CI workflow (`check` and `integration` jobs) and Dependabot.
 
 ### M1 Simulator: two systems, four legs
 

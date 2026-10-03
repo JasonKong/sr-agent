@@ -14,6 +14,8 @@ make test-integration          # tests marked integration, against the local Pos
 uv run pytest -m live          # tests that call a real model API (skipped by default)
 ```
 
+CI (`.github/workflows/ci.yml`) runs `make check` and, against a Postgres service container, `make migrate` and `make test-integration` on every pull request. Actions are pinned to commit SHAs; keep the `# vX.Y.Z` comment next to each SHA. Run `actionlint` after editing workflows.
+
 ## Layout
 
 - uv workspace; members are listed explicitly in the root `pyproject.toml`.
