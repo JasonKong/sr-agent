@@ -3,13 +3,14 @@ name = "sr-agent-workspace"
 version = "0.1.0"
 description = "Workspace root for SR-Agent. See docs/DESIGN.md."
 requires-python = ">=3.12"
-dependencies = ["sr-simulator", "sr-mcp", "sr-agent", "sr-evals"]
+dependencies = ["sr-db", "sr-simulator", "sr-mcp", "sr-agent", "sr-evals"]
 
 [tool.uv]
 package = false
 
 [tool.uv.workspace]
 members = [
+    "packages/db",
     "packages/simulator",
     "packages/mcp_server",
     "packages/agent",
@@ -17,6 +18,7 @@ members = [
 ]
 
 [tool.uv.sources]
+sr-db = { workspace = true }
 sr-simulator = { workspace = true }
 sr-mcp = { workspace = true }
 sr-agent = { workspace = true }
@@ -43,12 +45,13 @@ select = [
 ]
 
 [tool.ruff.lint.isort]
-known-first-party = ["sr_simulator", "sr_mcp", "sr_agent", "sr_evals"]
+known-first-party = ["sr_db", "sr_simulator", "sr_mcp", "sr_agent", "sr_evals"]
 
 [tool.mypy]
 python_version = "3.12"
 strict = true
 files = ["packages"]
+plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]
 testpaths = ["packages"]

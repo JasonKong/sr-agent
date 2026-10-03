@@ -8,14 +8,17 @@ SR-Agent is a learning-first, local-first AI support agent that explains why a s
 make install     # uv sync: all workspace packages and dev tools
 make check       # ruff check, ruff format --check, mypy (strict), pytest — must pass before a task is done
 make fmt         # ruff format + ruff check --fix
+make db-up       # start Postgres 16 + pgvector (needs .env: cp .env.example .env)
+make migrate     # apply SQL migrations (uv run sr-db migrate); make db-reset wipes local data
+make test-integration          # tests marked integration, against the local Postgres
 uv run pytest -m live          # tests that call a real model API (skipped by default)
-uv run pytest -m integration   # tests that need local services such as Postgres (skipped by default)
 ```
 
 ## Layout
 
 - uv workspace; members are listed explicitly in the root `pyproject.toml`.
 - Python packages live in `packages/<dir>/src/<import_name>`:
+  - `db` → `sr_db` (settings, migration runner, all SQL migrations)
   - `simulator` → `sr_simulator`
   - `mcp_server` → `sr_mcp`
   - `agent` → `sr_agent`
@@ -36,6 +39,8 @@ uv run pytest -m integration   # tests that need local services such as Postgres
 - Python 3.12, type hints everywhere, mypy strict. Validate data at boundaries with Pydantic; treat model output as untrusted input.
 - Configuration comes from environment variables, validated at start-up. `.env` is git-ignored and local-only.
 - Every data source goes through an adapter interface, never called directly from tool or agent code.
+- Schema changes are new files in `packages/db/src/sr_db/migrations/` named `NNNN_lowercase_words.sql`. Never edit a migration that has been applied; the runner rejects it.
+- Integration tests create their own throwaway database; never write test data into the development database.
 - Logs are structured JSON with `correlation_id`. Patient names, dates of birth and NHI numbers never appear in logs, tool results or model input.
 - Unit tests never call a real model or AWS; use `FakeModel` and fake adapters. Mark real-model tests `@pytest.mark.live`.
 - Add a dependency to the package that uses it (`uv add --package <dist-name> <dep>`), never to the workspace root. The only exception is dev tools.
