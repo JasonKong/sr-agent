@@ -70,8 +70,13 @@ def cap(data: dict[str, Any], max_chars: int) -> tuple[dict[str, Any], bool]:
     return data, True
 
 
+def log_event(event: str, record: dict[str, Any]) -> None:
+    """One JSON line on stderr (stdout carries the stdio protocol)."""
+    print(json.dumps({"event": event, **record}), file=sys.stderr, flush=True)
+
+
 def _log(record: dict[str, Any]) -> None:
-    print(json.dumps({"event": "tool_call", **record}), file=sys.stderr, flush=True)
+    log_event("tool_call", record)
 
 
 def guarded_tool(

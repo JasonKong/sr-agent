@@ -137,3 +137,29 @@ def matches(row: DataclassInstance, where: Mapping[str, Scalar | list[Scalar]]) 
 
 def find_evidence(rows: CaseRows, spec: EvidenceSpec) -> list[DataclassInstance]:
     return [row for row in rows.tables().get(spec.table, []) if matches(row, spec.where)]
+
+
+@dataclass(frozen=True)
+class ExpectedEvidence:
+    table: str
+    record_id: str
+    source: str  # "scenario" or "distractor"
+
+
+def expected_evidence(
+    world: World, referral_id: str, distractor_kind: str | None = None
+) -> list[ExpectedEvidence]:
+    """The records a correct diagnosis of this case should cite, from its specs."""
+    from sr_db.domain import FailureCode
+    from sr_simulator.scenario import load_distractors, load_scenarios
+
+    code = world.labels.get(referral_id, FailureCode.F00_NO_FAULT)
+    rows = case_rows(world, referral_id)
+    specs = [(item, "scenario") for item in load_scenarios()[code].evidence]
+    if distractor_kind is not None:
+        specs += [(item, "distractor") for item in load_distractors()[distractor_kind].evidence]
+    found = []
+    for item, source in specs:
+        for row in find_evidence(rows, item):
+            found.append(ExpectedEvidence(item.table, row.id, source))  # type: ignore[attr-defined]
+    return found

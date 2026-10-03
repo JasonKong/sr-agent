@@ -88,6 +88,12 @@ def test_get_referral_matches_the_simulator(store: PostgresReferralStore, world:
         )
         assert view.recipient.clinic is not None
         assert view.recipient.clinic.id == r.recipient_clinic_ref
+        assert {(d.id, d.fetch_status) for d in view.composer.source_documents} == {
+            (d.id, d.fetch_status.value) for d in rows.source_documents
+        }
+        assert [(h.attempt_no, h.http_status) for h in view.composer.hand_offs] == sorted(
+            (s.attempt_no, s.http_status) for s in rows.hub_sends
+        )
         if rows.hub_referrals:
             hub = rows.hub_referrals[0]
             assert view.link == "linked"

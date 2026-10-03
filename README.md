@@ -14,7 +14,7 @@ SR-Agent is a learning project for **MCP**, **RAG** and **agents**. It runs enti
 
 ## Status
 
-🚧 M0 and M1 are complete: the simulated world is ready. Next is M2, the MCP server. See the [implementation plan](docs/DESIGN.md#10-implementation-plan-for-claude-code).
+🚧 M0 and M1 are complete, and M2 (the MCP server) is nearly done: 8 read-only tools, runbook resources and a diagnosis prompt, usable from Claude Code today. See the [implementation plan](docs/DESIGN.md#10-implementation-plan-for-claude-code).
 
 | Milestone | Scope | State |
 | --- | --- | --- |
@@ -50,6 +50,10 @@ make seed              # 2000 referrals across both systems, logs, tickets, runb
 uv run sim case F07_CLINIC_PMS_AUTH_FAILED   # one labelled case and its evidence
 make test-integration
 ```
+
+## Try it with Claude
+
+After the quick start, open the project in Claude Code, approve the `sr-agent` MCP server, and ask: *"The specialist says GR-11854 never arrived in their system. Why?"* See [the setup guide](docs/guides/claude-mcp-setup.md) for Claude Desktop and more examples.
 
 ## Evaluation results
 

@@ -20,6 +20,8 @@ from sr_mcp.adapters.base import (
     ReferralSummary,
     ReferralView,
     ReturnPathView,
+    RunbookPage,
+    RunbookSummary,
     TimelineEntry,
 )
 from sr_mcp.deps import Deps
@@ -103,11 +105,23 @@ class FakeLogSource:
 
 
 class FakeKnowledge:
-    def __init__(self, hits: list[KnowledgeHit] | None = None) -> None:
+    def __init__(
+        self, hits: list[KnowledgeHit] | None = None, runbooks: list[RunbookPage] | None = None
+    ) -> None:
         self.hits = hits or []
+        self.runbooks = runbooks or []
 
     def search(self, query: str, *, error_code: str | None, top_k: int) -> list[KnowledgeHit]:
         return [h for h in self.hits if error_code in (None, h.error_code)][:top_k]
+
+    def list_runbooks(self) -> list[RunbookSummary]:
+        return [
+            RunbookSummary(slug=r.slug, error_code=r.error_code, title=r.title)
+            for r in self.runbooks
+        ]
+
+    def runbook(self, key: str) -> RunbookPage | None:
+        return next((r for r in self.runbooks if key in (r.slug, r.error_code)), None)
 
 
 def fake_deps(

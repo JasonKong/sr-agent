@@ -46,7 +46,9 @@ def register(server: MCPServer, deps: Deps) -> None:
         Use this first for any question about a specific referral. It accepts a Composer id
         (GR-...) or a Hub id (HR-...) and returns both sides linked:
 
-        - Composer: status, error level, key times, GP practice and GP.
+        - Composer: status, error level, key times, GP practice and GP; the source
+          documents pulled from the GP's PMS (with fetch status); and each hand-off attempt
+          to the Hub (with HTTP status).
         - Patient: a masked reference (PT-...), and whether the NHI and date of birth are
           present, empty or invalid. Names and values are never returned.
         - Hub: status, routing mode (ELECTRONIC or MANUAL), created and accepted times.

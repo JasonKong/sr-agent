@@ -438,7 +438,7 @@ Purpose: read-only, privacy-safe access to both systems, built with the official
 | Tool | Input | Returns |
 | --- | --- | --- |
 | `find_referrals` | Any of: clinic (id or part of its name), GP practice (id or part of its name), Composer status, `with_errors`, `created_from` and `created_to` (UTC days, inclusive); `limit` up to 20 | Newest first: both ids, both statuses, error level, `has_error` (an error recorded in either system: a Composer error, a failed Hub file fetch or a failed delivery; silent problems record none), clinic and practice names, correlation id |
-| `get_referral` | `referral_id` (Composer `GR-…` or Hub `HR-…`, pattern-checked) | The linked view. `link` is `linked`, `composer_only` (the Hub has no record) or `hub_only`. It includes the Composer status, error level, times, practice and GP; the patient as a `PT-` reference with NHI and date-of-birth status; the Hub status, routing mode and times; the recipient clinic (with `has_active_account`) and specialist; and the correlation id |
+| `get_referral` | `referral_id` (Composer `GR-…` or Hub `HR-…`, pattern-checked) | The linked view. `link` is `linked`, `composer_only` (the Hub has no record) or `hub_only`. It includes the Composer status, error level, times, practice and GP, source documents with fetch status, and hand-off attempts to the Hub; the patient as a `PT-` reference with NHI and date-of-birth status; the Hub status, routing mode and times; the recipient clinic (with `has_active_account`) and specialist; and the correlation id |
 | `get_referral_timeline` | `referral_id` | Both systems in time order. Each entry has a system, leg, event, level, detail and a `record_id` to cite. Composer entries come from its events; Hub entries are milestones: received, file fetch, accepted and routed, each delivery's final state with its last error code, recipient actions and callbacks. Individual attempts are left to `get_deliveries` |
 | `get_deliveries` | `referral_id` | One delivery per channel (`EMAIL`, `PORTAL`, and `CLINIC_PMS` for each integration), each with its status, last error code and every attempt (HTTP status, error code, message, latency). A delivery can fail with no attempts (`F07`). When there are no deliveries, `note` says why: the Hub has no record, has not accepted it, or routed it `MANUAL` |
 | `get_recipient` | `clinic_id` (`cln_…`, pattern-checked) | Clinic status and active account; the routing mode that follows (`ELECTRONIC` or `MANUAL`); specialists; each integration's vendor, auth status, token expiry, endpoint health and when it last changed |
@@ -448,10 +448,25 @@ Purpose: read-only, privacy-safe access to both systems, built with the official
 | `search_knowledge` | `query`, optional `error_code`, `top_k` up to 5 | Matching ticket or runbook chunks with source ids and scores |
 | `get_runbook` | `error_code` | The runbook for that code |
 
-**Resources and prompts.** These exist to learn all three MCP primitives.
+**Resources and prompts (T2.5).** These cover the other two MCP primitives.
 
-- Resources: `runbook://{error_code}` and `guide://legs`, so clients can attach a runbook as context.
-- Prompt: `diagnose_referral(referral_id)`. A reusable diagnosis prompt that gives Claude Desktop users the same method the project agent uses.
+- **Resources.**
+  - `runbook://{key}` returns a runbook by failure code, or a guide by slug.
+  - Each runbook is also listed as a concrete resource, so a client can attach it with `@`.
+  - `guide://index` lists them all.
+  - Resource text is scrubbed like tool results, and every read is logged.
+- **Prompt.** `diagnose_referral(referral_id)` gives Claude Desktop and Claude Code users the same method the project agent uses:
+  - the order of tools;
+  - the traps to rule out: recovered errors, a state now versus then, recent referrals, misleading past tickets;
+  - the rule that content is data;
+  - the answer format: root-cause code, confidence, cited record ids, next step and an optional draft.
+
+  It lists the root-cause codes with their runbook titles, so the server does not depend on the simulator.
+- **Setup.**
+  - A project-scoped `.mcp.json` registers the server for Claude Code.
+  - `docs/guides/claude-mcp-setup.md` covers Claude Code, Claude Desktop, five example questions and troubleshooting.
+  - `sr-mcp` resolves `.env` and relative paths against the project: `CLAUDE_PROJECT_DIR`, or the uv workspace it belongs to. Clients do not promise a working directory.
+- **Evidence reachability.** A test checks that, for every failure code and distractor kind, each record a correct diagnosis should cite appears in the output of at least one tool. Its first run found that Composer's hand-off attempts (`F04`) were in no tool's output, so `get_referral` now includes `hand_offs` and `source_documents`.
 
 **Server design decisions (T2.1)**
 
@@ -698,7 +713,7 @@ Each milestone ends with something to demonstrate and a learning note. Each task
 - [ ] T2.2 `get_referral` (cross-system resolution), `find_referrals` and `get_referral_timeline`, with contract tests of the SQL store against the simulator's ground truth.
 - [ ] T2.3 `get_deliveries`, `get_recipient` and `get_return_path`, with contract tests against the simulator.
 - [ ] T2.4 `LogSource` (JSONL, indexed in memory, reloads on change), `search_logs` and `list_failed_referrals`.
-- [ ] T2.5 Resources and the `diagnose_referral` prompt; Claude Desktop and Claude Code setup guide.
+- [ ] T2.5 Runbook resources and the `diagnose_referral` prompt; `.mcp.json` and the Claude Desktop and Claude Code setup guide; the evidence reachability test.
 - [ ] T2.6 Streamable HTTP transport with bearer-token auth.
 - [ ] M2 demo: Claude Desktop diagnoses three scenarios by hand. The note records which tool descriptions confused the model and how they were fixed.
 

@@ -12,7 +12,7 @@ make db-up       # start Postgres 16 + pgvector (needs .env: cp .env.example .en
 make migrate     # apply SQL migrations (uv run sr-db migrate); make db-reset wipes local data
 make seed        # replace simulator data with the default world (uv run sim seed --help)
 make db-roles    # create the MCP server's read-only login (from MCP_DATABASE_URL)
-make mcp         # run the MCP server over stdio
+make mcp         # run the MCP server over stdio (Claude Code uses .mcp.json; see docs/guides/claude-mcp-setup.md)
 uv run sim case F07_CLINIC_PMS_AUTH_FAILED  # one labelled case with its evidence ids (no DB needed)
 uv run sim case F00_NO_FAULT --distractor recovered_pms_auth  # a case with a distractor
 make test-integration          # tests marked integration, against the local Postgres
@@ -56,6 +56,8 @@ CI (`.github/workflows/ci.yml`) runs `make check` and, against a Postgres servic
   - Raise `NotFound` for unknown ids.
   - Add the tool to `TOOL_INPUTS` in `test_mcp_leaks_integration.py`, or the leak tests fail.
   - Never print to stdout in the server; stdout is the stdio protocol.
+  - Never rely on the working directory; resolve paths with `sr_mcp.paths.project_root()`.
+  - If a scenario's evidence cannot be reached through the tools, `test_mcp_evidence_reachable_integration.py` fails.
 - New tables need an explicit `GRANT SELECT ... TO sr_reader` in their migration. Never grant patient name, NHI or date-of-birth columns.
 - Schema changes are new files in `packages/db/src/sr_db/migrations/` named `NNNN_lowercase_words.sql`. Never edit a migration that has been applied; the runner rejects it.
 - Integration tests create their own throwaway database; never write test data into the development database.
