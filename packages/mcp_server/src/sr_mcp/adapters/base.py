@@ -6,7 +6,7 @@ sources (section 11), and unit tests use fakes (`sr_mcp.testing`).
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict
@@ -24,6 +24,100 @@ class PatientFields(_Record):
     patient_ref: str
     synthetic_nhi: FieldStatus
     date_of_birth: FieldStatus
+
+
+class PracticeInfo(_Record):
+    id: str
+    name: str
+    pms_vendor: str
+
+
+class PersonInfo(_Record):
+    """A GP user or a specialist. These are clinicians, not patients, so names are allowed."""
+
+    id: str
+    name: str
+    role: str | None = None
+
+
+class ClinicInfo(_Record):
+    id: str
+    name: str
+    specialty_group: str
+    status: str
+    has_active_account: bool
+
+
+class ComposerSide(_Record):
+    id: str
+    status: str
+    error_level: str
+    created_at: datetime
+    submitted_at: datetime | None
+    sent_at: datetime | None
+    pdf_size_bytes: int | None
+    practice: PracticeInfo
+    gp_user: PersonInfo
+    patient: PatientFields
+
+
+class HubSide(_Record):
+    id: str
+    status: str
+    routing_mode: str | None
+    created_at: datetime
+    accepted_at: datetime | None
+
+
+class Recipient(_Record):
+    clinic: ClinicInfo | None
+    specialist: PersonInfo | None
+
+
+Link = Literal["linked", "composer_only", "hub_only"]
+
+
+class ReferralView(_Record):
+    """One referral seen from both systems. `link` says whether both sides exist."""
+
+    link: Link
+    correlation_id: str
+    composer: ComposerSide | None
+    hub: HubSide | None
+    recipient: Recipient
+
+
+class ReferralFilters(_Record):
+    clinic: str | None = None  # clinic id, or part of its name
+    practice: str | None = None  # GP practice id, or part of its name
+    status: str | None = None  # Composer status
+    with_errors: bool | None = None
+    created_from: date | None = None
+    created_to: date | None = None  # inclusive
+    limit: int = 20
+
+
+class ReferralSummary(_Record):
+    composer_id: str
+    hub_id: str | None
+    created_at: datetime
+    composer_status: str
+    hub_status: str | None
+    error_level: str
+    has_error: bool  # an error recorded in either system
+    clinic_name: str | None
+    practice_name: str
+    correlation_id: str
+
+
+class TimelineEntry(_Record):
+    at: datetime
+    system: Literal["composer", "hub"]
+    leg: str
+    event: str
+    level: str
+    detail: str | None
+    record_id: str  # cite this as evidence
 
 
 class LogRecord(_Record):
@@ -59,9 +153,21 @@ class KnowledgeHit(_Record):
 
 
 class ReferralStore(Protocol):
-    """Referral data from both systems. T2.2 and T2.3 add the referral queries."""
+    """Referral data from both systems."""
 
     def patient_fields(self, patient_id: str) -> PatientFields | None: ...
+
+    def get_referral(self, referral_id: str) -> ReferralView | None:
+        """By Composer (GR-) or Hub (HR-) id; None when neither system knows it."""
+        ...
+
+    def find_referrals(self, filters: ReferralFilters) -> list[ReferralSummary]:
+        """Newest first, at most `filters.limit`."""
+        ...
+
+    def timeline(self, referral_id: str) -> list[TimelineEntry] | None:
+        """Events from both systems in time order; None when the id is unknown."""
+        ...
 
     def close(self) -> None: ...
 

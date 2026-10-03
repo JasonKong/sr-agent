@@ -437,9 +437,9 @@ Purpose: read-only, privacy-safe access to both systems, built with the official
 
 | Tool | Input | Returns |
 | --- | --- | --- |
-| `find_referrals` | Any of: practice, clinic name or id, status, error only, date range; `limit` up to 20 | Matching referrals with both ids, statuses and one-line summaries |
-| `get_referral` | `referral_id` (Composer `GR-…` or Hub `HR-…`) | A linked view: Composer and Hub statuses, timestamps, routing mode, recipient, masked patient reference, correlation id |
-| `get_referral_timeline` | `referral_id` | Merged, time-ordered events from both systems, each labelled with system and leg |
+| `find_referrals` | Any of: clinic (id or part of its name), GP practice (id or part of its name), Composer status, `with_errors`, `created_from` and `created_to` (UTC days, inclusive); `limit` up to 20 | Newest first: both ids, both statuses, error level, `has_error` (an error recorded in either system: a Composer error, a failed Hub file fetch or a failed delivery; silent problems record none), clinic and practice names, correlation id |
+| `get_referral` | `referral_id` (Composer `GR-…` or Hub `HR-…`, pattern-checked) | The linked view. `link` is `linked`, `composer_only` (the Hub has no record) or `hub_only`. It includes the Composer status, error level, times, practice and GP; the patient as a `PT-` reference with NHI and date-of-birth status; the Hub status, routing mode and times; the recipient clinic (with `has_active_account`) and specialist; and the correlation id |
+| `get_referral_timeline` | `referral_id` | Both systems in time order. Each entry has a system, leg, event, level, detail and a `record_id` to cite. Composer entries come from its events; Hub entries are milestones: received, file fetch, accepted and routed, each delivery's final state with its last error code, recipient actions and callbacks. Individual attempts are left to `get_deliveries` |
 | `get_deliveries` | `referral_id` | Each delivery channel with its status and attempts (HTTP status, error code, latency) |
 | `get_recipient` | `clinic_id` | Clinic status, active account, routing mode, specialists, and integrations (vendor, auth status, token expiry, endpoint health) |
 | `get_return_path` | `referral_id` | Specialist actions, return callbacks and GP inbox filing status |
@@ -471,6 +471,9 @@ Purpose: read-only, privacy-safe access to both systems, built with the official
   - turns `NotFound` into a typed `NOT_FOUND` error;
   - caps results at `MCP_MAX_RESULT_CHARS`, dropping list items from the end and setting `truncated`;
   - logs each call as JSON to **stderr**: tool, caller, outcome, duration, size and redactions, but never content. Stdout carries the stdio protocol.
+
+- **All times are UTC** (`Z`), in tool results as in logs. Mixing time zones invites wrong before-and-after reasoning.
+- **GP and specialist names are allowed**, because they are clinicians, not patients. Patients appear only as `PT-` references.
 
 **Rules for every tool**
 
@@ -691,7 +694,7 @@ Each milestone ends with something to demonstrate and a learning note. Each task
 ### M2 MCP server
 
 - [ ] T2.1 Server skeleton on the MCP SDK 2.x with `stdio`, adapter interfaces and fakes, the read-only database role (migration 0005), masking and the output guard, and leak tests that every tool must join.
-- [ ] T2.2 `get_referral` (cross-system resolution), `find_referrals` and `get_referral_timeline`.
+- [ ] T2.2 `get_referral` (cross-system resolution), `find_referrals` and `get_referral_timeline`, with contract tests of the SQL store against the simulator's ground truth.
 - [ ] T2.3 `get_deliveries`, `get_recipient` and `get_return_path`.
 - [ ] T2.4 `LogSource` (JSONL), `search_logs` and `list_failed_referrals`.
 - [ ] T2.5 Resources and the `diagnose_referral` prompt; Claude Desktop and Claude Code setup guide.

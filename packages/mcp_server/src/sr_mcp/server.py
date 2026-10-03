@@ -8,6 +8,7 @@ from mcp.server import MCPServer
 
 from sr_mcp import __version__
 from sr_mcp.deps import Deps
+from sr_mcp.tools import referrals
 
 INSTRUCTIONS = """\
 Read-only tools over a simulated GP-to-specialist referral platform, for diagnosing why a
@@ -28,7 +29,7 @@ referral failed or was not received.
 
 # Each entry registers a group of tools (T2.2 onwards). Every tool must also be added to
 # TOOL_INPUTS in tests/test_mcp_leaks_integration.py.
-TOOL_GROUPS: list[Callable[[MCPServer, Deps], None]] = []
+TOOL_GROUPS: list[Callable[[MCPServer, Deps], None]] = [referrals.register]
 
 
 def create_server(deps: Deps) -> MCPServer:

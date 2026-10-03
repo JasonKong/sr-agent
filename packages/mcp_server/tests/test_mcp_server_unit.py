@@ -34,6 +34,6 @@ def test_instructions_set_the_rules() -> None:
     assert "not_found" in text
 
 
-def test_no_tools_are_registered_yet() -> None:
-    # T2.2 onwards add tools; each must also be added to the leak tests.
-    assert _list("tools") == []
+def test_registered_tools() -> None:
+    # Every tool must also be added to TOOL_INPUTS in the leak tests.
+    assert _list("tools") == ["get_referral", "find_referrals", "get_referral_timeline"]

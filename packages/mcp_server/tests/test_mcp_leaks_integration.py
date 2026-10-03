@@ -28,7 +28,14 @@ pytestmark = pytest.mark.integration
 WORLD = SimConfig(seed=11, practices=6, clinics=10, referrals=250)
 
 # Tool name -> function building the tool's arguments for one referral of the seeded world.
-TOOL_INPUTS: dict[str, Callable[[World, str], dict[str, Any]]] = {}
+TOOL_INPUTS: dict[str, Callable[[World, str], dict[str, Any]]] = {
+    "get_referral": lambda world, rid: {"referral_id": rid},
+    "get_referral_timeline": lambda world, rid: {"referral_id": rid},
+    "find_referrals": lambda world, rid: {
+        "clinic": next(r.recipient_clinic_ref for r in world.referrals if r.id == rid),
+        "limit": 20,
+    },
+}
 
 
 @pytest.fixture(scope="module")
