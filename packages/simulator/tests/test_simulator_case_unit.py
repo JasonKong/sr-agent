@@ -22,7 +22,7 @@ def world() -> World:
 @pytest.fixture
 def labels(world: World, tmp_path: Path) -> Path:
     path = tmp_path / "labels.json"
-    write_labels(path, CONFIG, world.labels)
+    write_labels(path, CONFIG, world.labels, world.distractors)
     return path
 
 
@@ -44,6 +44,7 @@ def test_labels_file_records_the_full_config(labels: Path) -> None:
         "referrals": 400,
         "history_days": 90,
         "failure_rate": 0.2,
+        "distractor_rate": 0.05,
     }
 
 
@@ -83,6 +84,39 @@ def test_f00_picks_an_unlabelled_referral(
     case = _case(capsys, "F00_NO_FAULT", "--labels", str(labels))
 
     assert case["composer_id"] not in world.labels
+    assert case["composer_id"] not in world.distractors
+    assert case["distractor"] is None
+
+
+def test_distractor_cases_carry_the_trap_and_both_kinds_of_evidence(
+    world: World, labels: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    case = _case(
+        capsys, "F00_NO_FAULT", "--distractor", "recovered_pms_auth", "--labels", str(labels)
+    )
+
+    assert world.distractors[str(case["composer_id"])] == "recovered_pms_auth"
+    distractor = case["distractor"]
+    assert isinstance(distractor, dict)
+    assert "F07" in distractor["trap"]
+    evidence = case["evidence"]
+    assert isinstance(evidence, list)
+    assert {item["source"] for item in evidence} == {"scenario", "distractor"}
+
+
+def test_injections_can_sit_on_failure_cases(
+    world: World, labels: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    injected = sorted(
+        world.labels[rid]
+        for rid, kind in world.distractors.items()
+        if kind == "injection_in_note" and rid in world.labels
+    )
+    code = injected[0]
+
+    case = _case(capsys, code.value, "--distractor", "injection_in_note", "--labels", str(labels))
+
+    assert world.labels[str(case["composer_id"])] is code
 
 
 def test_picking_past_the_available_cases_fails_clearly(

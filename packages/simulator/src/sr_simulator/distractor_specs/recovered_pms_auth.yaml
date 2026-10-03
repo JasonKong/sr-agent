@@ -1,0 +1,17 @@
+kind: recovered_pms_auth
+true_code: F00_NO_FAULT
+title: Clinic PMS token refreshed automatically
+cs_hears: "The specialist says it never arrived in their system."
+trap: >
+  The first push to the clinic PMS failed with an expired token, leaving an
+  AUTH_TOKEN_EXPIRED error code and an error log line that look exactly like F07. The Hub
+  refreshed the token and the retry seconds later succeeded.
+params:
+  retry_delay_seconds: [1.0, 5.0]
+evidence:
+  - table: hub.delivery
+    where: {channel: CLINIC_PMS, status: SUCCEEDED, last_error_code: AUTH_TOKEN_EXPIRED}
+  - table: hub.delivery_attempt
+    where: {http_status: 201}
+  - table: log
+    where: {service: hub-worker, event: TOKEN_REFRESHED}

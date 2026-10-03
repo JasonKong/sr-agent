@@ -21,6 +21,7 @@ from sr_simulator.faults import OUTCOME_LEGS, OUTCOME_PARAMS, Injection, Leg, Pa
 from sr_simulator.rows import ROW_TYPES
 
 SCENARIO_DIR = Path(__file__).parent / "scenarios"
+DISTRACTOR_DIR = Path(__file__).parent / "distractor_specs"
 
 Scalar = str | int | bool | None
 
@@ -118,3 +119,52 @@ def load_scenarios(directory: Path = SCENARIO_DIR) -> dict[FailureCode, Scenario
 
 def injections(specs: dict[FailureCode, ScenarioSpec]) -> dict[FailureCode, Injection]:
     return {code: inj for code, spec in specs.items() if (inj := spec.injection()) is not None}
+
+
+class DistractorSpec(_Strict):
+    """A distractor kind: what CS hears, the trap, and the evidence that shows the truth."""
+
+    kind: str
+    true_code: FailureCode | Literal["inherit"]  # "inherit": keeps the case's own label
+    title: str
+    cs_hears: str
+    trap: str
+    params: dict[str, object] = Field(default_factory=dict)
+    evidence: list[EvidenceSpec]
+
+    @model_validator(mode="after")
+    def _known_kind(self) -> DistractorSpec:
+        from sr_simulator.distractors import KINDS
+
+        if self.kind not in KINDS:
+            raise ValueError(f"unknown distractor kind {self.kind!r}; known: {sorted(KINDS)}")
+        if (self.true_code == "inherit") != KINDS[self.kind].any_label:
+            raise ValueError(f"{self.kind}: true_code 'inherit' is only for kinds on any label")
+        self.validated_params()
+        return self
+
+    def validated_params(self) -> Params:
+        from sr_simulator.distractors import KINDS
+
+        return KINDS[self.kind].params.model_validate(self.params)
+
+
+def parse_distractor(data: object) -> DistractorSpec:
+    return DistractorSpec.model_validate(data)
+
+
+@cache
+def load_distractors(directory: Path = DISTRACTOR_DIR) -> dict[str, DistractorSpec]:
+    """Every distractor kind, by name. Each file must be named after its kind."""
+    from sr_simulator.distractors import KINDS
+
+    specs: dict[str, DistractorSpec] = {}
+    for path in sorted(directory.glob("*.yaml")):
+        spec = parse_distractor(yaml.safe_load(path.read_text()))
+        if path.stem != spec.kind:
+            raise ValueError(f"{path.name} holds {spec.kind}; name the file {spec.kind}.yaml")
+        specs[spec.kind] = spec
+    missing = set(KINDS) - set(specs)
+    if missing:
+        raise ValueError(f"missing distractor files for {sorted(missing)}")
+    return specs

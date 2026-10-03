@@ -14,9 +14,10 @@ from sr_db.domain import FailureCode
 from sr_db.settings import DatabaseSettings
 from sr_simulator.case_rows import case_rows, find_evidence
 from sr_simulator.config import DEFAULT_ANCHOR, SimConfig
+from sr_simulator.distractors import KINDS
 from sr_simulator.generate import generate
 from sr_simulator.logs import write_logs
-from sr_simulator.scenario import load_scenarios
+from sr_simulator.scenario import load_distractors, load_scenarios
 from sr_simulator.write import write_world
 
 DEFAULT_LABELS = Path("var/sim/labels.json")
@@ -33,7 +34,12 @@ def _anchor_time(text: str) -> datetime:
     return moment
 
 
-def write_labels(path: Path, config: SimConfig, labels: dict[str, FailureCode]) -> None:
+def write_labels(
+    path: Path,
+    config: SimConfig,
+    labels: dict[str, FailureCode],
+    distractors: dict[str, str] | None = None,
+) -> None:
     """Write the ground truth, with the full config so the same world can be rebuilt."""
     path.parent.mkdir(parents=True, exist_ok=True)
     document = {
@@ -45,9 +51,11 @@ def write_labels(path: Path, config: SimConfig, labels: dict[str, FailureCode]) 
             "referrals": config.referrals,
             "history_days": config.history_days,
             "failure_rate": config.failure_rate,
+            "distractor_rate": config.distractor_rate,
         },
         "note": "Referrals not listed are F00_NO_FAULT. Never load this into the database.",
         "labels": {referral_id: code.value for referral_id, code in sorted(labels.items())},
+        "distractors": dict(sorted((distractors or {}).items())),
     }
     path.write_text(json.dumps(document, indent=2) + "\n")
 
@@ -68,6 +76,7 @@ def _seed(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
             referrals=args.referrals,
             history_days=args.history_days,
             failure_rate=args.failure_rate,
+            distractor_rate=args.distractor_rate,
         )
     except ValueError as error:
         parser.error(str(error))
@@ -77,7 +86,7 @@ def _seed(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     with psycopg.connect(DatabaseSettings().url, autocommit=True) as conn:
         counts = write_world(conn, world)
     log_counts = write_logs(world, args.logs)
-    write_labels(args.labels, config, world.labels)
+    write_labels(args.labels, config, world.labels, world.distractors)
     elapsed = time.perf_counter() - started
 
     rows = {**counts, **{f"log {service}": n for service, n in log_counts.items()}}
@@ -87,6 +96,8 @@ def _seed(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     codes = Counter(world.labels.values())
     codes[FailureCode.F00_NO_FAULT] = config.referrals - len(world.labels)
     print("cases: " + ", ".join(f"{c.value[:3]}={codes[c]}" for c in FailureCode))
+    kinds = Counter(world.distractors.values())
+    print("distractors: " + ", ".join(f"{k}={n}" for k, n in sorted(kinds.items())))
     print(f"logs written to {args.logs}/, labels to {args.labels}")
     print(f"seeded seed={config.seed} anchor={config.anchor_time.isoformat()} in {elapsed:.1f}s")
     return 0
@@ -99,24 +110,33 @@ def _case(args: argparse.Namespace) -> int:
         return 1
     world = generate(_read_config(args.labels))
     code: FailureCode = args.code
-    if code is FailureCode.F00_NO_FAULT:
-        candidates = [r.id for r in world.referrals if r.id not in world.labels]
-    else:
-        candidates = sorted(rid for rid, c in world.labels.items() if c is code)
+    kind: str | None = args.distractor
+    true_code = {r.id: world.labels.get(r.id, FailureCode.F00_NO_FAULT) for r in world.referrals}
+    # Without --distractor, only clean cases: no distractor of any kind.
+    candidates = sorted(
+        rid for rid, c in true_code.items() if c is code and world.distractors.get(rid) == kind
+    )
     if args.pick >= len(candidates):
-        message = (
-            f"only {len(candidates)} {code.value} cases exist; pick 0 to {len(candidates) - 1}"
+        what = f"{code.value} cases " + (
+            f"with distractor {kind}" if kind else "without distractors"
         )
+        message = f"only {len(candidates)} {what} exist; pick 0 to {len(candidates) - 1}"
         print(f"sim: {message}", file=sys.stderr)
         return 1
 
     referral_id = candidates[args.pick]
     rows = case_rows(world, referral_id)
     spec = load_scenarios()[code]
+    distractor = load_distractors()[kind] if kind else None
+    items = [(item, "scenario") for item in spec.evidence]
+    items += [(item, "distractor") for item in (distractor.evidence if distractor else [])]
     evidence = []
-    for item in spec.evidence:
+    for item, source in items:
         for row in find_evidence(rows, item):
-            evidence.append({"table": item.table, "record_id": row.id, "where": item.where})  # type: ignore[attr-defined]
+            record_id = row.id  # type: ignore[attr-defined]
+            evidence.append(
+                {"table": item.table, "record_id": record_id, "where": item.where, "source": source}
+            )
     result = {
         "code": code.value,
         "pick": args.pick,
@@ -124,10 +144,15 @@ def _case(args: argparse.Namespace) -> int:
         "composer_id": referral_id,
         "hub_id": rows.referral.hub_referral_id,
         "correlation_id": rows.referral.correlation_id,
-        "cs_hears": spec.cs_hears,
+        "cs_hears": distractor.cs_hears if distractor else spec.cs_hears,
         "root_cause": spec.root_cause.strip(),
         "recommended_action": spec.recommended_action.strip(),
         "escalate_to_engineering": spec.escalate_to_engineering,
+        "distractor": (
+            {"kind": kind, "title": distractor.title, "trap": distractor.trap.strip()}
+            if distractor
+            else None
+        ),
         "evidence": evidence,
     }
     print(json.dumps(result, indent=2))
@@ -158,6 +183,12 @@ def main(argv: list[str] | None = None) -> int:
         default=defaults.failure_rate,
         help="share of referrals given an injected failure (default %(default)s)",
     )
+    seed.add_argument(
+        "--distractor-rate",
+        type=float,
+        default=defaults.distractor_rate,
+        help="share of referrals given a distractor (default %(default)s)",
+    )
     seed.add_argument("--logs", type=Path, default=DEFAULT_LOGS, help="JSONL log directory")
     seed.add_argument(
         "--labels",
@@ -171,6 +202,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     case.add_argument("code", type=FailureCode, choices=list(FailureCode), metavar="CODE")
     case.add_argument("--pick", type=int, default=0, help="which case of that code (0-based)")
+    case.add_argument(
+        "--distractor",
+        choices=sorted(KINDS),
+        help="pick a case with this distractor (default: cases without any distractor)",
+    )
     case.add_argument(
         "--labels", type=Path, default=DEFAULT_LABELS, help="labels file written by `sim seed`"
     )

@@ -1,0 +1,16 @@
+kind: recovered_hub_send
+true_code: F00_NO_FAULT
+title: Hand-off failed once, then the resend worked
+cs_hears: "Was it stuck? The GP saw an error earlier."
+trap: >
+  The first hand-off to the Hub returned a server error, and Composer logged
+  HUB_SEND_FAILED, like F04. The automatic resend about an hour later succeeded and the
+  referral went through normally.
+params:
+  statuses: [500, 502, 503]
+  resend_after_minutes: [55, 95]
+evidence:
+  - table: composer.hub_send
+    where: {attempt_no: 2, http_status: 201}
+  - table: hub.hub_referral
+    where: {routing_mode: ELECTRONIC}

@@ -1,0 +1,12 @@
+kind: in_progress
+true_code: F00_NO_FAULT
+title: Delivered recently, not opened yet
+cs_hears: "The specialist hasn't received it yet."
+trap: >
+  Nobody at the clinic has opened the referral, which suggests F10. But it was delivered
+  less than a day ago, well within the normal time to act.
+evidence:
+  - table: hub.delivery
+    where: {status: SUCCEEDED}
+  - table: hub.hub_referral
+    where: {status: NEW}

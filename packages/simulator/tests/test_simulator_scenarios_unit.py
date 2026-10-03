@@ -24,6 +24,7 @@ from sr_db.domain import (
 )
 from sr_simulator.case_rows import CaseRows, case_rows, find_evidence
 from sr_simulator.config import SimConfig
+from sr_simulator.distractors import KINDS
 from sr_simulator.generate import generate
 from sr_simulator.invariants import healthy_violations
 from sr_simulator.rows import Delivery, World
@@ -124,7 +125,11 @@ def test_injection_does_not_change_who_referred_whom_or_when(world: World) -> No
 
 
 def test_unlabelled_referrals_stay_healthy(world: World) -> None:
-    assert healthy_violations(world, _cases(world, FailureCode.F00_NO_FAULT)) == []
+    # Distractors that change data (a failure that recovered) are tested on their own.
+    changed = {rid for rid, kind in world.distractors.items() if KINDS[kind].changes_data}
+    changed -= {rid for rid, kind in world.distractors.items() if kind == "injection_in_note"}
+    healthy = [rid for rid in _cases(world, FailureCode.F00_NO_FAULT) if rid not in changed]
+    assert healthy_violations(world, healthy) == []
 
 
 @pytest.mark.parametrize("code", list(FailureCode), ids=lambda c: c.value[:3])
@@ -228,8 +233,9 @@ def test_broken_clinic_integrations_fail_every_delivery_after_they_broke(world: 
                 continue
             tried_at = first_try.get(d.id, d.updated_at)
             if tried_at < since:
-                # Earlier deliveries may fail for their own reasons (F09), never this one.
-                assert d.last_error_code != reason, d
+                # Before T, nothing fails for this reason. Earlier deliveries may fail for their
+                # own reasons (F09), or have recovered from it (a distractor).
+                assert d.status is DeliveryStatus.SUCCEEDED or d.last_error_code != reason, d
             else:
                 assert d.status is not DeliveryStatus.SUCCEEDED, d
                 assert d.last_error_code == reason, d
