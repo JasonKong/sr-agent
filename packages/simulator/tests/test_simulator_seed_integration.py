@@ -90,7 +90,7 @@ def test_cli_seed(
     exit_code = main(
         [
             *["seed", "--seed", "3", "--practices", "3", "--clinics", "4", "--referrals", "60"],
-            *["--failure-rate", "0.2", "--labels", str(labels)],
+            *["--failure-rate", "0.2", "--labels", str(labels), "--logs", str(tmp_path / "logs")],
         ]
     )
 
@@ -101,9 +101,11 @@ def test_cli_seed(
     row = migrated.execute("SELECT count(*) FROM composer.referral").fetchone()
     assert row == (60,)
     written = json.loads(labels.read_text())
-    assert written["seed"] == 3
+    assert written["config"]["seed"] == 3
     assert 0 < len(written["labels"]) <= 12
     assert all(v.startswith("F") for v in written["labels"].values())
+    assert written["config"]["referrals"] == 60
+    assert len(list((tmp_path / "logs").glob("*.jsonl"))) == 4
 
 
 def test_labels_never_reach_the_database(migrated: psycopg.Connection) -> None:

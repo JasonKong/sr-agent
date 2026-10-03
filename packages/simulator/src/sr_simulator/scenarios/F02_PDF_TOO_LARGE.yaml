@@ -19,3 +19,5 @@ evidence:
     where: {event: PDF_COMPRESSION_RETRY}
   - table: composer.referral_event
     where: {event: PDF_GENERATION_FAILED}
+  - table: log
+    where: {service: composer-worker, event: PDF_GENERATION_FAILED}

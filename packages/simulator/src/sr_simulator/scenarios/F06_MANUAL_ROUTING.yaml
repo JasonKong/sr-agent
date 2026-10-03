@@ -19,3 +19,5 @@ evidence:
     where: {routing_mode: MANUAL}
   - table: hub.clinic
     where: {has_active_account: false}
+  - table: log
+    where: {service: hub-api, event: REFERRAL_ROUTED_MANUAL}

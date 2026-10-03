@@ -22,3 +22,5 @@ evidence:
     where: {fetch_status: FAILED}
   - table: composer.referral_event
     where: {event: AUTO_RESEND}
+  - table: log
+    where: {service: hub-worker, error_code: FILE_FETCH_FAILED}

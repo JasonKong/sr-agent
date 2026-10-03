@@ -168,7 +168,13 @@ Schema rules:
 | `runbook` (`rb_`) | slug, error\_code, title, body\_markdown, updated\_at | One per failure code, plus general guides (`error_code` NULL) |
 | `knowledge_chunk` | source\_type, source\_id, error\_code, text, metadata, embedding, tsv | Added in T4.1, once the embedding model (and so the vector size) is chosen |
 
-**Logs.** One JSON object per line, one file per service: `composer-web`, `composer-worker`, `hub-api`, `hub-worker`. Fields: `timestamp`, `level`, `service`, `referral_id` (the id native to that system), `correlation_id` (shared across both systems for one referral), `leg`, `event`, `error_code`, `message`.
+**Logs.** One JSON object per line, one file per service (`var/logs/<service>.jsonl`): `composer-web`, `composer-worker`, `hub-api`, `hub-worker`.
+
+- **Fields, in this order:** `id` (`<service>:<sequence>`, numbered in time order), `timestamp` (UTC, milliseconds, `Z`), `level`, `service`, `referral_id` (the id native to that system: `GR-` in Composer, `HR-` in the Hub), `correlation_id` (shared across both systems), `leg`, `event`, `error_code` and `message`.
+- **Generation.** Logs are generated with the rows, so every Composer event and every Hub step has a matching line.
+- **Log-only evidence.** Some failures leave evidence only in the logs, such as the `F03` warning and the `F07` authentication error.
+- **No patient values.** Messages never contain patient values; a test checks every line.
+- **Format.** Files are byte-identical for the same config. In AWS, the same lines go to CloudWatch Logs.
 
 ### 3.4 Failure scenario catalogue
 
@@ -331,7 +337,8 @@ sr-agent/
 
 - `cp .env.example .env`, then `make db-up` starts Postgres 16 with pgvector on `127.0.0.1`.
 - `make migrate` (`uv run sr-db migrate`) applies SQL migrations; `make db-reset` starts again from an empty database.
-- `uv run sim seed` loads data and writes JSONL logs to `./var/logs/`.
+- `uv run sim seed` (`make seed`) loads data, writes JSONL logs to `./var/logs/` and ground truth to `./var/sim/labels.json`.
+- `uv run sim case F07_CLINIC_PMS_AUTH_FAILED` prints a labelled case and its expected evidence.
 - `uv run sr-mcp --transport stdio` runs the MCP server for Claude Desktop or Claude Code.
 - `uv run sra ask "Why didn't the specialist get GR-10234?"` runs the agent from the terminal.
 
@@ -363,7 +370,12 @@ Purpose: realistic, reproducible data for two systems, with labelled failures an
 
 - SQL migrations (in `sr_db`, section 7.0) for the `composer`, `hub` and `knowledge` schemas in section 3.3.
 - `sim seed --seed 42 --anchor-time … --practices 30 --clinics 40 --referrals 2000 --failure-rate 0.15 --distractor-rate 0.05` fills both schemas and writes logs, tickets and runbooks.
-- `sim create-case --scenario F07_CLINIC_PMS_AUTH_FAILED [--distractor]` creates one fresh case. It prints the Composer and Hub ids, the expected root cause and the expected evidence references, for evaluation.
+- `sim case F07_CLINIC_PMS_AUTH_FAILED [--pick N]` picks the N-th labelled case of that code from the seeded world. It rebuilds the same world in memory from the config saved in `var/sim/labels.json`, so it needs no database. It prints:
+  - the Composer, Hub and correlation ids;
+  - what CS hears, the root cause and the recommended action;
+  - the expected evidence, resolved to concrete record and log ids.
+
+  It picks rather than creates a case. Creating a new case for a clinic-level fault would change other referrals already in the database, and picking keeps the evaluation dataset and the database in step for a given seed.
 - Each scenario YAML describes the scenario, the outcome to inject, the expected statuses and the expected evidence (section 3.4). Log lines (T1.4) and ticket templates (T1.6) are added to the same files.
 - **People and organisations.**
   - People's names come from Faker (`en_NZ`) with a seed per entity.
@@ -513,7 +525,7 @@ Acceptance:
 
 Purpose: measure every change from the first agent onwards and catch regressions.
 
-- Dataset built with `sim create-case`:
+- Dataset built with `sim case` from the default seeded world:
   - 5 cases per failure code with varied question wording (60 cases).
   - 15 distractor cases.
   - Some questions give a Composer id, some a Hub id, and some only a clinic and date.
@@ -630,7 +642,7 @@ Each milestone ends with something to demonstrate and a learning note. Each task
 - [ ] T1.1 Schemas for `composer`, `hub` and `knowledge`.
 - [ ] T1.2 Base generator: practices, clinics, people and healthy referrals across both systems, with seed and anchor time; synthetic NHI format.
 - [ ] T1.3 Scenario YAML format and injection for `F00` to `F11`, with a test per scenario.
-- [ ] T1.4 Structured JSONL logs for the four services; `sim create-case`.
+- [ ] T1.4 Structured JSONL logs for the four services, as evidence too; `sim case`.
 - [ ] T1.5 Distractor injection (section 3.5).
 - [ ] T1.6 Historical ticket and runbook generator.
 - [ ] M1 note: the domain model explained in my own words; screenshots of a timeline across both systems.

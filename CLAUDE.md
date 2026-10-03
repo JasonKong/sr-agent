@@ -11,6 +11,7 @@ make fmt         # ruff format + ruff check --fix
 make db-up       # start Postgres 16 + pgvector (needs .env: cp .env.example .env)
 make migrate     # apply SQL migrations (uv run sr-db migrate); make db-reset wipes local data
 make seed        # replace simulator data with the default world (uv run sim seed --help)
+uv run sim case F07_CLINIC_PMS_AUTH_FAILED  # one labelled case with its evidence ids (no DB needed)
 make test-integration          # tests marked integration, against the local Postgres
 uv run pytest -m live          # tests that call a real model API (skipped by default)
 ```

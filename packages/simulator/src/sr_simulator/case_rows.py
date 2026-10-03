@@ -22,6 +22,7 @@ from sr_simulator.rows import (
     HubReferral,
     HubSend,
     InboundResponse,
+    LogLine,
     PatientSnapshot,
     PmsConnection,
     RecipientAction,
@@ -61,6 +62,7 @@ class CaseRows:
     delivery_attempts: list[DeliveryAttempt]
     recipient_actions: list[RecipientAction]
     return_callbacks: list[ReturnCallback]
+    logs: list[LogLine]  # from both systems, by correlation id
 
     def tables(self) -> dict[str, Sequence[DataclassInstance]]:
         return {
@@ -82,6 +84,7 @@ class CaseRows:
             "hub.delivery_attempt": self.delivery_attempts,
             "hub.recipient_action": self.recipient_actions,
             "hub.return_callback": self.return_callbacks,
+            "log": self.logs,
         }
 
 
@@ -111,6 +114,7 @@ def case_rows(world: World, referral_id: str) -> CaseRows:
         delivery_attempts=[a for a in world.delivery_attempts if a.delivery_id in delivery_ids],
         recipient_actions=[a for a in world.recipient_actions if a.hub_referral_id == hub_id],
         return_callbacks=[c for c in world.return_callbacks if c.hub_referral_id == hub_id],
+        logs=[line for line in world.logs if line.correlation_id == referral.correlation_id],
     )
 
 

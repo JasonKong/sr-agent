@@ -26,3 +26,5 @@ evidence:
     where: {status: SUCCEEDED}
   - table: composer.inbound_response
     where: {inbox_filing_status: FAILED}
+  - table: log
+    where: {service: composer-worker, error_code: INBOX_FILING_FAILED}

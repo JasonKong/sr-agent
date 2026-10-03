@@ -18,3 +18,5 @@ evidence:
     where: {auth_status: EXPIRED}
   - table: hub.delivery
     where: {channel: CLINIC_PMS, status: FAILED, last_error_code: AUTH_TOKEN_EXPIRED}
+  - table: log
+    where: {service: hub-worker, event: CLINIC_PMS_AUTH_FAILED, error_code: AUTH_TOKEN_EXPIRED}

@@ -26,3 +26,5 @@ evidence:
     where: {channel: CLINIC_PMS, status: FAILED}
   - table: hub.delivery_attempt
     where: {error_code: [PATIENT_MISMATCH, PATIENT_INCOMPLETE]}
+  - table: log
+    where: {service: hub-worker, event: DELIVERY_REJECTED}

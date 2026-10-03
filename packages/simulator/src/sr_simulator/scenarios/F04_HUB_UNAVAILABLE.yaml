@@ -20,3 +20,5 @@ evidence:
     where: {http_status: [500, 502, 503]}
   - table: composer.referral_event
     where: {event: AUTO_RESEND}
+  - table: log
+    where: {service: composer-worker, event: HUB_SEND_FAILED}
