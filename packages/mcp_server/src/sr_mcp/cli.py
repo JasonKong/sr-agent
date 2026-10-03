@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import argparse
 
-from sr_mcp.adapters.null import NoKnowledge, NoLogs
+from sr_mcp.adapters.jsonl_logs import JsonlLogSource
+from sr_mcp.adapters.null import NoKnowledge
 from sr_mcp.adapters.postgres import PostgresReferralStore
 from sr_mcp.deps import Deps
 from sr_mcp.server import create_server
@@ -22,7 +23,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     deps = Deps(
         store=store,
-        logs=NoLogs(),
+        logs=JsonlLogSource(settings.log_dir),
         knowledge=NoKnowledge(),
         max_result_chars=settings.max_result_chars,
         caller=args.transport,

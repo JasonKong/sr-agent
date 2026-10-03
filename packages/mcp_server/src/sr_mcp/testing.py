@@ -2,8 +2,12 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 from sr_mcp.adapters.base import (
+    LEVELS,
     DeliveriesView,
+    FailedReferral,
     KnowledgeHit,
     KnowledgeSearch,
     LogQuery,
@@ -33,6 +37,8 @@ class FakeReferralStore:
         deliveries: dict[str, DeliveriesView] | None = None,
         recipients: dict[str, RecipientView] | None = None,
         return_paths: dict[str, ReturnPathView] | None = None,
+        failures: list[FailedReferral] | None = None,
+        now: datetime | None = None,
     ) -> None:
         self.patients = patients or {}
         self.views = views or {}
@@ -41,6 +47,8 @@ class FakeReferralStore:
         self.deliveries_by_id = deliveries or {}
         self.recipients = recipients or {}
         self.return_paths = return_paths or {}
+        self.failures = failures or []
+        self.now = now or datetime(2026, 10, 1, tzinfo=UTC)
         self.last_filters: ReferralFilters | None = None
 
     def patient_fields(self, patient_id: str) -> PatientFields | None:
@@ -65,6 +73,15 @@ class FakeReferralStore:
     def return_path(self, referral_id: str) -> ReturnPathView | None:
         return self.return_paths.get(referral_id)
 
+    def failed_referrals(
+        self, since: datetime, leg: str | None, limit: int
+    ) -> list[FailedReferral]:
+        found = [f for f in self.failures if f.failed_at >= since and leg in (None, f.leg)]
+        return sorted(found, key=lambda f: f.failed_at, reverse=True)[:limit]
+
+    def data_now(self) -> datetime:
+        return self.now
+
     def close(self) -> None:
         return None
 
@@ -80,7 +97,7 @@ class FakeLogSource:
             if query.referral_id in (None, r.referral_id)
             and query.correlation_id in (None, r.correlation_id)
             and query.service in (None, r.service)
-            and query.level in (None, r.level)
+            and (query.min_level is None or LEVELS.index(r.level) >= LEVELS.index(query.min_level))
         ]
         return sorted(found, key=lambda r: r.timestamp, reverse=True)[: query.limit]
 

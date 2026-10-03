@@ -8,6 +8,7 @@ read-only database role, and its whole output is searched for every patient valu
 import asyncio
 import json
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 import psycopg
@@ -15,11 +16,13 @@ import pytest
 from mcp import Client
 from mcp.types import TextContent
 
+from sr_mcp.adapters.jsonl_logs import JsonlLogSource
 from sr_mcp.adapters.postgres import PostgresReferralStore
 from sr_mcp.server import create_server
 from sr_mcp.testing import fake_deps
 from sr_simulator.config import SimConfig
 from sr_simulator.generate import generate
+from sr_simulator.logs import write_logs
 from sr_simulator.rows import World
 from sr_simulator.write import write_world
 
@@ -31,6 +34,8 @@ WORLD = SimConfig(seed=11, practices=6, clinics=10, referrals=250)
 TOOL_INPUTS: dict[str, Callable[[World, str], dict[str, Any]]] = {
     "get_referral": lambda world, rid: {"referral_id": rid},
     "get_referral_timeline": lambda world, rid: {"referral_id": rid},
+    "search_logs": lambda world, rid: {"referral_id": rid, "limit": 200},
+    "list_failed_referrals": lambda world, rid: {"hours": 24 * 120},
     "get_deliveries": lambda world, rid: {"referral_id": rid},
     "get_return_path": lambda world, rid: {"referral_id": rid},
     "get_recipient": lambda world, rid: {
@@ -80,11 +85,12 @@ def test_patient_fields_through_the_reader_role_reveal_status_only(
 
 @pytest.mark.parametrize("tool", sorted(TOOL_INPUTS))
 def test_no_tool_leaks_patient_values(
-    migrated: psycopg.Connection, reader_url: str, world: World, tool: str
+    migrated: psycopg.Connection, reader_url: str, world: World, tool: str, tmp_path: Path
 ) -> None:
     write_world(migrated, world)
+    write_logs(world, tmp_path)
     store = PostgresReferralStore(reader_url, mask_salt="leak-test")
-    server = create_server(fake_deps(store=store))
+    server = create_server(fake_deps(store=store, logs=JsonlLogSource(tmp_path)))
     # Full names, NHIs and dates of birth (single names alone would match ordinary words).
     secrets = {
         v

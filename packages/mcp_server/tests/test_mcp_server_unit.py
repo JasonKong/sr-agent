@@ -43,4 +43,6 @@ def test_registered_tools() -> None:
         "get_deliveries",
         "get_recipient",
         "get_return_path",
+        "search_logs",
+        "list_failed_referrals",
     ]
