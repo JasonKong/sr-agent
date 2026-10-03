@@ -70,7 +70,18 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 The server finds `.env` and `var/logs` from its own location in the repository, so the working directory does not matter.
 
-## 4. Try it
+## 4. Over HTTP (for the agent and other clients)
+
+The project agent (M3) connects over Streamable HTTP. Set `MCP_HTTP_TOKEN` in `.env` (32 characters or more; `.env.example` shows how to generate one), then:
+
+```bash
+make mcp-http                                   # http://127.0.0.1:8765/mcp
+curl -s http://127.0.0.1:8765/healthz           # {"status": "ok"}, needs no token
+```
+
+Clients send `Authorization: Bearer <MCP_HTTP_TOKEN>` with every request; without it the server answers `401`. The HTTP transport is stateless and answers with plain JSON.
+
+## 5. Try it
 
 These referrals exist in the default seed (`make seed` with no options). Ask Claude as a CS person would:
 
@@ -91,7 +102,7 @@ uv run sim case F00_NO_FAULT --distractor recovered_pms_auth
 
 `docs/learning/` is the place to note where the model went wrong, or which tool descriptions confused it. That feeds T5.1.
 
-## 5. Troubleshooting
+## 6. Troubleshooting
 
 | Symptom | Likely cause and fix |
 | --- | --- |
@@ -100,5 +111,7 @@ uv run sim case F00_NO_FAULT --distractor recovered_pms_auth
 | `connection refused` | Postgres is not running: `make db-up` |
 | `password authentication failed for user "sr_mcp"` | Run `make db-roles`; it reads `MCP_DATABASE_URL` from `.env` |
 | `permission denied for table patient_snapshot` | Expected: the server's role cannot read patient values. If a tool hits this, it is a bug |
+| `sr-mcp: HTTP needs MCP_HTTP_TOKEN` | Add `MCP_HTTP_TOKEN` (32+ characters) to `.env` |
+| `401` over HTTP | The client must send `Authorization: Bearer <MCP_HTTP_TOKEN>` |
 | `search_logs` finds nothing | Run `make seed`; it writes `var/logs/`. The server reloads logs after a re-seed |
 | Tools answer about different referrals than these examples | The data was seeded with other options. Re-run `make seed` with the defaults |

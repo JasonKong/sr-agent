@@ -15,3 +15,5 @@ class McpSettings(BaseSettings):
     mask_salt: SecretStr
     log_dir: Path = Path("var/logs")
     max_result_chars: int = Field(default=8000, ge=500)
+    # Required for --transport http: the bearer token clients must send (ADR 0003).
+    http_token: SecretStr | None = None

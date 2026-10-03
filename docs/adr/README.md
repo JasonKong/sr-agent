@@ -6,6 +6,7 @@ Each significant decision gets one short record. A record is never edited after 
 | --- | --- | --- |
 | [0001](0001-python-first-typescript-for-web.md) | Python for the backend, TypeScript for the web console | Accepted |
 | [0002](0002-local-first-runtime.md) | Local-first runtime; AWS is optional | Accepted |
+| [0003](0003-static-bearer-token-for-mcp-http.md) | A static bearer token for the MCP server's HTTP transport | Accepted |
 
 ## Template
 
