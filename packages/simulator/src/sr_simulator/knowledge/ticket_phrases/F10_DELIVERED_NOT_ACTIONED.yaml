@@ -1,0 +1,43 @@
+code: F10_DELIVERED_NOT_ACTIONED
+weight: 10
+clinic: account
+vendor_side: none
+titles:
+  - "Specialist says they never got it"
+  - "No response from {clinic} after {days} days"
+  - "Referral ignored?"
+  - "Clinic can't find referral"
+reports:
+  - "The specialist's office says they never got the referral, and it's been {days} days."
+  - "No acknowledgement after {days} days and the clinic says they can't find it."
+  - "Patient chased the clinic, who said there's no referral."
+  - "The GP hasn't heard anything back and the clinic claims it isn't there."
+short_reports:
+  - "spec says never got it"
+  - "no response {days} days"
+  - "clinic cant find"
+guesses:
+  - "Possibly it's sitting unread at the clinic."
+  - "Might be in their inbox."
+  - "Could be a delivery problem."
+wrong_guesses:
+  - text: "Probably delivery failed somewhere."
+    thing: "a delivery failure"
+  - text: "Maybe their PMS rejected it."
+    thing: "a rejection"
+findings:
+  - "Every delivery succeeded (email, portal and PMS), but nobody at the clinic had opened it."
+  - "Delivered on all channels; the only activity was a view, with no response after {days} days."
+  - "All deliveries succeeded; no recipient action at all."
+short_findings:
+  - "delivered all channels, not opened"
+  - "viewed only"
+  - "no action at clinic"
+resolutions:
+  - "Sent the clinic the proof of delivery and asked them to check their inbox and portal. They found it."
+  - "Shared delivery times with the practice manager; it was in a colleague's queue."
+  - "Clinic found it in the portal after we sent the delivery details."
+short_resolutions:
+  - "sent proof of delivery"
+  - "clinic found it"
+  - "pointed clinic to portal"

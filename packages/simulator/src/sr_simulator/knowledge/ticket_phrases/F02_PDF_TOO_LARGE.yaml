@@ -1,0 +1,43 @@
+code: F02_PDF_TOO_LARGE
+weight: 3
+clinic: account
+vendor_side: gp
+titles:
+  - "Referral fails to generate"
+  - "Big attachments, referral errored"
+  - "Referral PDF won't build"
+  - "Generation error with photos attached"
+reports:
+  - "The referral fails part way through generating. The GP had attached several scans and photos."
+  - "The practice says it goes to 'processing' and then errors out when making the document."
+  - "Referral with a lot of attachments keeps failing at the PDF step."
+  - "GP attached imaging reports and clinical photos and now it won't generate."
+short_reports:
+  - "fails to generate"
+  - "pdf error, lots of attachments"
+  - "errors at document step"
+guesses:
+  - "Possibly the attachments are too large."
+  - "Might be one of the documents."
+  - "Could be the size of the scans."
+wrong_guesses:
+  - text: "Looks like the patient details are wrong."
+    thing: "the patient details"
+  - text: "Suspect the Hub is down."
+    thing: "the Hub"
+findings:
+  - "The PDF came out larger than the 15 MB limit, and was still too big after the compression retry."
+  - "Attached documents pushed the PDF well over the size limit; compression didn't bring it under."
+  - "Generation failed on size: three large scans made the PDF bigger than the limit."
+short_findings:
+  - "pdf over 15MB after compression"
+  - "too big"
+  - "size limit"
+resolutions:
+  - "Asked the GP to drop the large photos and attach a summary instead; it generated fine."
+  - "GP reduced the attachments and resubmitted."
+  - "Practice split the documents and sent the key ones only."
+short_resolutions:
+  - "gp removed attachments, ok"
+  - "resent smaller"
+  - "fewer docs attached"

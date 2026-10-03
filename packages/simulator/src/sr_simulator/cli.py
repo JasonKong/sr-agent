@@ -39,6 +39,7 @@ def write_labels(
     config: SimConfig,
     labels: dict[str, FailureCode],
     distractors: dict[str, str] | None = None,
+    knowledge: dict[str, str] | None = None,
 ) -> None:
     """Write the ground truth, with the full config so the same world can be rebuilt."""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -52,10 +53,12 @@ def write_labels(
             "history_days": config.history_days,
             "failure_rate": config.failure_rate,
             "distractor_rate": config.distractor_rate,
+            "tickets": config.tickets,
         },
         "note": "Referrals not listed are F00_NO_FAULT. Never load this into the database.",
         "labels": {referral_id: code.value for referral_id, code in sorted(labels.items())},
         "distractors": dict(sorted((distractors or {}).items())),
+        "knowledge": dict(sorted((knowledge or {}).items(), key=lambda kv: int(kv[0][4:]))),
     }
     path.write_text(json.dumps(document, indent=2) + "\n")
 
@@ -75,6 +78,7 @@ def _seed(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
             clinics=args.clinics,
             referrals=args.referrals,
             history_days=args.history_days,
+            tickets=args.tickets,
             failure_rate=args.failure_rate,
             distractor_rate=args.distractor_rate,
         )
@@ -86,7 +90,7 @@ def _seed(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     with psycopg.connect(DatabaseSettings().url, autocommit=True) as conn:
         counts = write_world(conn, world)
     log_counts = write_logs(world, args.logs)
-    write_labels(args.labels, config, world.labels, world.distractors)
+    write_labels(args.labels, config, world.labels, world.distractors, world.knowledge_labels)
     elapsed = time.perf_counter() - started
 
     rows = {**counts, **{f"log {service}": n for service, n in log_counts.items()}}
@@ -98,6 +102,8 @@ def _seed(args: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
     print("cases: " + ", ".join(f"{c.value[:3]}={codes[c]}" for c in FailureCode))
     kinds = Counter(world.distractors.values())
     print("distractors: " + ", ".join(f"{k}={n}" for k, n in sorted(kinds.items())))
+    tickets = Counter(world.knowledge_labels.values())
+    print("knowledge distractors: " + ", ".join(f"{k}={n}" for k, n in sorted(tickets.items())))
     print(f"logs written to {args.logs}/, labels to {args.labels}")
     print(f"seeded seed={config.seed} anchor={config.anchor_time.isoformat()} in {elapsed:.1f}s")
     return 0
@@ -177,6 +183,9 @@ def main(argv: list[str] | None = None) -> int:
     seed.add_argument("--clinics", type=int, default=defaults.clinics)
     seed.add_argument("--referrals", type=int, default=defaults.referrals)
     seed.add_argument("--history-days", type=int, default=defaults.history_days)
+    seed.add_argument(
+        "--tickets", type=int, default=defaults.tickets, help="historical support tickets"
+    )
     seed.add_argument(
         "--failure-rate",
         type=float,

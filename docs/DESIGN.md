@@ -223,10 +223,9 @@ Healthy data contains noise. An agent that pattern-matches on the first error it
 | `delivered_before_expiry` | F00 | Tag only: the last referral delivered to an `F07` clinic before its token expired | The clinic integration shows `EXPIRED` today |
 | `in_progress` | F00 | Tag only: accepted within the last 24 hours and not opened yet | Looks like `F10`, but it is too soon |
 | `injection_in_note` | the case's own | The GP's note to the clinic, logged by `composer-web`, contains instructions aimed at the agent. Half of these sit on failure cases, whose own evidence is untouched | The note is data, never instructions |
+| `misleading_ticket` | the case's own (F07, F08, F09) | A recent-looking past ticket for the same clinic blames a different clinic-side cause (F07↔F08, F09→F07) | Retrieval by clinic surfaces the wrong cause first |
 
-Two more distractors come with the support tickets in T1.6:
-- a past ticket for the same clinic that describes a different root cause;
-- a ticket containing a prompt injection.
+The knowledge base also carries `injection_in_ticket`: about 2% of past tickets contain text aimed at an AI assistant. These are labelled per ticket in `labels.json` under `knowledge`, not per referral.
 
 How distractors work:
 - **Specs.** Each kind has a spec in `packages/simulator/src/sr_simulator/distractor_specs/` with the same structure as a scenario: what CS hears, the trap, its parameters, and the evidence that shows the truth. The mechanics live in `distractors.py`.
@@ -407,8 +406,16 @@ Purpose: realistic, reproducible data for two systems, with labelled failures an
     - **Return leg:** every response except a download is returned to Composer and filed in the GP inbox.
   - **Hub numbering** has gaps, because the Hub also receives referrals from other channels. A Hub id therefore cannot be guessed from a Composer id.
 - `--distractor-rate` (default 0.05) adds the distractors in section 3.5; `sim case CODE --distractor KIND` picks one.
-- At least 300 historical tickets. They are written in varied styles: terse, chatty, wrong guesses later corrected, and mentions of other referrals. Each has a resolution and a labelled root cause.
-- One runbook per failure code, plus general runbooks: how routing works, the four legs, and vendor quirks.
+- **Historical support tickets** (`--tickets`, default 360, plus one per `misleading_ticket` case), assembled deterministically in `tickets.py`. No model is called at seed time.
+  - **Phrases.** They come from hand-written phrase banks in `knowledge/ticket_phrases/` (one per code, plus unresolved tickets) and writing styles in `knowledge/ticket_styles.yaml`.
+  - **Styles.** Tickets are terse, chatty, structured, corrected (a wrong first guess, fixed in the resolution), about several referrals, or vendor-specific.
+  - **Wording.** It deliberately differs from the vocabulary an agent's queries use, so retrieval methods can be compared.
+  - **No answer leaks.** Tickets are *historical*: created in the two years before the database's history window, about archived referral ids (`GR-0nnnn`, not in the database) and about clinics that are. Evaluation cases therefore never have their own answer sitting in the knowledge base.
+  - **Consistency with clinics.** F06 tickets name clinics without an account; F07, F08 and F09 tickets name clinics with an integration.
+  - **Patient details.** About 30% include a synthetic NHI or date of birth, never a name, so masking before embedding (T4.1) is tested on real text.
+  - **Unresolved tickets.** About 5% have no resolution and no root cause.
+- **Runbooks.** There is one runbook per failure code, with Symptoms, How to confirm, Why it happens, What to do and When to escalate. There are also five guides: the four legs, routing, reading logs, retries and resends, and PMS vendors. They are Markdown with front matter in `knowledge/runbooks/`.
+  - **Kept in step with the simulator.** A test checks that every event, error code and service in a scenario's evidence is named in its runbook.
 
 Acceptance:
 - Running seed twice with the same arguments gives byte-identical data.
@@ -470,7 +477,7 @@ Purpose: let the agent find how similar problems were solved before.
 - Chunking: one chunk per ticket (title, description, resolution). Runbooks are split by heading, about 500 tokens each, and each chunk keeps its heading path.
 - Storage: `embedding vector(n)` with an HNSW index, and `tsv tsvector` with a GIN index.
 - Query: hybrid retrieval. Vector similarity and full-text rank are combined with reciprocal rank fusion, optionally filtered by `error_code`, and the top `top_k` are returned with scores and source ids.
-- Patient data is masked before embedding, so it never reaches the vector store.
+- Patient data is masked before embedding, so it never reaches the vector store. Tickets contain synthetic NHIs (`SIM` plus four digits) and dates of birth (`DD-MM-YYYY`) but never names, so pattern-based masking is sufficient and testable.
 
 Learning experiments, each recorded in the M4 learning note with numbers:
 
@@ -658,7 +665,7 @@ Each milestone ends with something to demonstrate and a learning note. Each task
 - [ ] T1.3 Scenario YAML format and injection for `F00` to `F11`, with a test per scenario.
 - [ ] T1.4 Structured JSONL logs for the four services, as evidence too; `sim case`.
 - [ ] T1.5 Distractor injection (section 3.5): recovered failures, misleading current state, recent referrals and prompt injection in a GP note.
-- [ ] T1.6 Historical ticket and runbook generator.
+- [ ] T1.6 Historical tickets (phrase banks, styles, knowledge distractors) and runbooks; public-repo boundary test.
 - [ ] M1 note: the domain model explained in my own words; screenshots of a timeline across both systems.
 
 ### M2 MCP server

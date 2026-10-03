@@ -1,0 +1,43 @@
+code: F05_ATTACHMENT_FETCH_FAILED
+weight: 6
+clinic: account
+vendor_side: none
+titles:
+  - "Specialist never got the referral"
+  - "Referral sent but not at clinic"
+  - "Hub has it but clinic doesn't"
+  - "Referral to {clinic} not received"
+reports:
+  - "Composer shows the referral as sent, but the specialist says it never arrived."
+  - "The GP has a sent status, the clinic has nothing."
+  - "Sent days ago according to the practice, but {clinic} can't find it anywhere."
+  - "Status says sent, but nobody at the clinic has seen it."
+short_reports:
+  - "sent but not received"
+  - "clinic doesnt have it"
+  - "not at clinic"
+guesses:
+  - "Maybe the Hub didn't finish picking it up."
+  - "Possibly stuck between the systems."
+  - "Could be something at the Hub."
+wrong_guesses:
+  - text: "Sounds like the clinic's PMS token expired again."
+    thing: "the clinic's token"
+  - text: "Maybe the clinic just hasn't looked."
+    thing: "the clinic not looking"
+findings:
+  - "The Hub received the referral but couldn't download the PDF from Composer (signed URL had expired), so it never accepted it. The auto-resend hit the same problem."
+  - "Hub file fetch failed with a 403; the referral was never accepted and nothing was delivered."
+  - "Hub referral existed but with no accepted time; the PDF download returned 404."
+short_findings:
+  - "hub couldnt fetch pdf, never accepted"
+  - "file fetch 403"
+  - "not accepted at hub"
+resolutions:
+  - "Resent from Composer and it was accepted and delivered."
+  - "Resent; escalated to engineering because it failed again first time."
+  - "Resent the referral; clinic confirmed receipt."
+short_resolutions:
+  - "resent ok"
+  - "resent + escalated"
+  - "resent, clinic has it"

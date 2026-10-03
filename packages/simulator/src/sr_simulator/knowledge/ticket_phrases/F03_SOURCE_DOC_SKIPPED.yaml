@@ -1,0 +1,43 @@
+code: F03_SOURCE_DOC_SKIPPED
+weight: 6
+clinic: account
+vendor_side: gp
+titles:
+  - "Specialist says pages are missing"
+  - "Attachment missing from referral"
+  - "Referral arrived incomplete"
+  - "Bloods not included in referral to {clinic}"
+reports:
+  - "The specialist received the referral but the blood results the GP attached weren't in it."
+  - "Clinic says the referral is missing pages the GP definitely included."
+  - "The specialist rang the practice asking for the X-ray report, which should have been attached."
+  - "One of the attached documents didn't come through; the rest of the referral is fine."
+short_reports:
+  - "doc missing from referral"
+  - "pages missing"
+  - "attachment didnt come thru"
+guesses:
+  - "Maybe the document didn't load from their PMS."
+  - "Could be a problem pulling the document."
+  - "Possibly a fetch problem on the GP side."
+wrong_guesses:
+  - text: "The clinic probably lost it at their end."
+    thing: "the clinic's end"
+  - text: "Maybe the PDF was too big and got trimmed."
+    thing: "the PDF size"
+findings:
+  - "One source document failed to download from the GP's PMS (HTTP 406) and was left out without an error; only a warning in the worker log."
+  - "The document fetch timed out after 30 s and the referral was generated without it. Everything else looked healthy."
+  - "Fetching one attachment from {vendor} failed and was silently skipped. The referral status gave no hint."
+short_findings:
+  - "source doc fetch failed, skipped"
+  - "doc fetch timeout"
+  - "406 from pms, doc skipped"
+resolutions:
+  - "Asked the GP to send the missing document straight to the clinic."
+  - "Practice emailed the results to the specialist. Logged in case {vendor} keeps doing this."
+  - "GP re-attached the document and resent; it came through this time."
+short_resolutions:
+  - "gp sent doc direct"
+  - "resent w doc"
+  - "doc emailed to spec"

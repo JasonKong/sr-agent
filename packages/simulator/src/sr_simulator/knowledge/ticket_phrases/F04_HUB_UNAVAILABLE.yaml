@@ -1,0 +1,43 @@
+code: F04_HUB_UNAVAILABLE
+weight: 5
+clinic: account
+vendor_side: none
+titles:
+  - "Referral stuck on processing"
+  - "Referrals not going out"
+  - "Stuck in sending"
+  - "Nothing leaving Composer this morning"
+reports:
+  - "The referral has been sitting on 'processing' for over an hour."
+  - "Practice says the referral generated fine but it never shows as sent."
+  - "A few practices rang about referrals stuck in sending at the same time."
+  - "The GP sees the PDF in their outbox but the referral status never moved on."
+short_reports:
+  - "stuck processing"
+  - "not sending"
+  - "stuck in sending"
+guesses:
+  - "Possibly a problem on the Hub side."
+  - "Might be a wider outage."
+  - "Could be the hand-off to the Hub."
+wrong_guesses:
+  - text: "Probably the clinic's PMS is down."
+    thing: "the clinic's PMS"
+  - text: "Maybe the GP's form is incomplete."
+    thing: "the form"
+findings:
+  - "The Hub returned a 503 when Composer sent it, and the automatic resend about an hour later failed too. The Hub had no record of it."
+  - "Hand-off to the Hub failed with server errors twice; nothing reached the Hub at all."
+  - "Composer logged HUB_SEND_FAILED for both the first try and the auto-resend. Hub outage at the time."
+short_findings:
+  - "hub 5xx, auto resend failed too"
+  - "hub outage"
+  - "hub_send failed x2"
+resolutions:
+  - "Escalated to engineering with the correlation id. Resent once the Hub was back."
+  - "Engineering fixed the Hub; we resent the stuck referrals."
+  - "Hub recovered; resent and confirmed delivery."
+short_resolutions:
+  - "escalated, resent after fix"
+  - "resent when hub ok"
+  - "eng fixed, resent"

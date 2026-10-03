@@ -1,0 +1,43 @@
+code: F09_CLINIC_IMPORT_REJECTED
+weight: 8
+clinic: integration
+vendor_side: clinic
+titles:
+  - "Referral not in patient's file"
+  - "Clinic PMS rejected referral"
+  - "Referral arrived but not filed against patient"
+  - "{clinic} can see it but can't file it"
+reports:
+  - "The clinic can see the referral in the portal but it didn't go into the patient's file in their PMS."
+  - "Specialist says it arrived but isn't attached to the patient."
+  - "It turned up on the portal but their {vendor} rejected it."
+  - "Clinic says the referral is floating, not linked to any patient."
+short_reports:
+  - "not in pt file"
+  - "pms rejected"
+  - "not linked to patient"
+guesses:
+  - "Possibly the patient details don't match their records."
+  - "Might be a name or NHI mismatch."
+  - "Could be incomplete patient info."
+wrong_guesses:
+  - text: "Probably their token expired."
+    thing: "an expired token"
+  - text: "Maybe the PDF was corrupted."
+    thing: "the PDF"
+findings:
+  - "The clinic's PMS rejected the import with HTTP 409: the patient name didn't match their record for that NHI."
+  - "Import rejected with 422 PATIENT_INCOMPLETE; the specialist had viewed it in the portal."
+  - "{vendor} returned PATIENT_MISMATCH on the clinic PMS delivery."
+short_findings:
+  - "409 patient mismatch"
+  - "422 patient incomplete"
+  - "import rejected"
+resolutions:
+  - "Asked the clinic to match the patient manually in their PMS."
+  - "Clinic merged the patient record and filed the referral by hand."
+  - "Clinic fixed the patient details on their side and filed it."
+short_resolutions:
+  - "clinic matched manually"
+  - "filed by hand"
+  - "clinic fixed pt"

@@ -1,0 +1,43 @@
+code: F11_RESPONSE_NOT_FILED
+weight: 7
+clinic: account
+vendor_side: gp
+titles:
+  - "GP never got the specialist's reply"
+  - "Acknowledgement not received by practice"
+  - "Specialist says they replied"
+  - "No response in GP inbox"
+reports:
+  - "The GP says the specialist never replied, but the clinic insists they acknowledged it."
+  - "Practice hasn't received any acknowledgement, and the patient is waiting."
+  - "The clinic declined the referral but the GP didn't see the decline."
+  - "Specialist responded days ago; nothing in the GP's inbox."
+short_reports:
+  - "gp no reply from spec"
+  - "ack not received"
+  - "nothing in gp inbox"
+guesses:
+  - "Possibly a problem getting the reply back to the practice."
+  - "Might be the practice's PMS."
+  - "Could be filing into their inbox."
+wrong_guesses:
+  - text: "Thought the specialist hadn't actually responded."
+    thing: "the specialist not responding"
+  - text: "Maybe the referral never reached the clinic."
+    thing: "a delivery problem"
+findings:
+  - "The specialist did respond and the Hub passed it back, but filing it into the GP's PMS inbox failed."
+  - "Return callback succeeded; inbox filing failed with an error from the GP's PMS."
+  - "Response received by Composer but RESPONSE_FILING_FAILED: {vendor} rejected the inbox entry."
+short_findings:
+  - "inbox filing failed"
+  - "callback ok, filing failed"
+  - "gp pms rejected"
+resolutions:
+  - "Told the GP the response exists, asked them to check their PMS connection, and refiled it."
+  - "Practice reconnected {vendor}; refiled the response."
+  - "Refiled the specialist's response and confirmed it appeared."
+short_resolutions:
+  - "refiled, told gp"
+  - "reconnected + refiled"
+  - "refiled ok"

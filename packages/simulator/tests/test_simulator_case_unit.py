@@ -45,6 +45,7 @@ def test_labels_file_records_the_full_config(labels: Path) -> None:
         "history_days": 90,
         "failure_rate": 0.2,
         "distractor_rate": 0.05,
+        "tickets": 360,
     }
 
 

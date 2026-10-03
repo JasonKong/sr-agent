@@ -138,8 +138,10 @@ class DistractorSpec(_Strict):
 
         if self.kind not in KINDS:
             raise ValueError(f"unknown distractor kind {self.kind!r}; known: {sorted(KINDS)}")
-        if (self.true_code == "inherit") != KINDS[self.kind].any_label:
-            raise ValueError(f"{self.kind}: true_code 'inherit' is only for kinds on any label")
+        if (self.true_code == "inherit") != (KINDS[self.kind].on != "healthy"):
+            raise ValueError(
+                f"{self.kind}: use true_code 'inherit' exactly when it sits on failures"
+            )
         self.validated_params()
         return self
 

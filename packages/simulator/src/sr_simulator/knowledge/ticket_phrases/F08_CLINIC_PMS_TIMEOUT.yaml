@@ -1,0 +1,43 @@
+code: F08_CLINIC_PMS_TIMEOUT
+weight: 8
+clinic: integration
+vendor_side: clinic
+titles:
+  - "Referrals slow to reach {clinic}"
+  - "Clinic PMS not responding"
+  - "{vendor} delivery problems"
+  - "Specialist hasn't received it yet"
+reports:
+  - "The specialist hasn't received the referral in their system yet."
+  - "Referrals to {clinic} seem to be stuck before they get into the PMS."
+  - "Clinic says their PMS has been slow and referrals aren't arriving."
+  - "Nothing arriving in the clinic's {vendor} since this morning."
+short_reports:
+  - "not received yet"
+  - "slow to clinic pms"
+  - "stuck b4 pms"
+guesses:
+  - "Possibly their PMS is having problems."
+  - "Might be a vendor issue."
+  - "Could be slow responses from the clinic system."
+wrong_guesses:
+  - text: "Sounds like the token expired again."
+    thing: "an expired token"
+  - text: "Maybe the clinic never activated their account."
+    thing: "the account"
+findings:
+  - "The clinic's PMS endpoint stopped responding in time; the Hub retried three times with timeouts and gave up."
+  - "Endpoint was degraded: delivery attempts timed out after 30 s each and retries ran out."
+  - "{vendor} endpoint timing out; clinic PMS delivery failed with TIMEOUT."
+short_findings:
+  - "pms timeouts, retries exhausted"
+  - "endpoint degraded"
+  - "TIMEOUT x3"
+resolutions:
+  - "Checked the vendor status page, waited for them to recover, then resent."
+  - "{vendor} confirmed an incident; resent once it was healthy."
+  - "Resent after the clinic's PMS came back."
+short_resolutions:
+  - "resent once healthy"
+  - "vendor incident, resent"
+  - "waited + resent"

@@ -23,7 +23,7 @@ def _database_fingerprint(conn: psycopg.Connection) -> str:
     tables = conn.execute(
         """
         SELECT table_schema, table_name FROM information_schema.tables
-        WHERE table_schema IN ('composer', 'hub') ORDER BY 1, 2
+        WHERE table_schema IN ('composer', 'hub', 'knowledge') ORDER BY 1, 2
         """
     ).fetchall()
     parts = []
@@ -105,6 +105,8 @@ def test_cli_seed(
     assert 0 < len(written["labels"]) <= 12
     assert all(v.startswith("F") for v in written["labels"].values())
     assert written["config"]["referrals"] == 60
+    assert written["knowledge"]
+    assert "knowledge.support_ticket" in out
     assert len(list((tmp_path / "logs").glob("*.jsonl"))) == 4
 
 
