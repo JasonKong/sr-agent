@@ -4,42 +4,15 @@ Each test gets its own throwaway database, so tests never touch the development 
 """
 
 import shutil
-import uuid
-from collections.abc import Iterator
 from pathlib import Path
-from urllib.parse import urlsplit
 
 import psycopg
 import pytest
-from psycopg import sql
 
 from sr_db.cli import main
 from sr_db.migrate import MIGRATIONS_DIR, MigrationError, applied_migrations, migrate
-from sr_db.settings import DatabaseSettings
 
 pytestmark = pytest.mark.integration
-
-
-@pytest.fixture
-def database_url() -> Iterator[str]:
-    """Create an empty database for one test and drop it afterwards."""
-    admin_url = DatabaseSettings().url
-    name = f"sr_test_{uuid.uuid4().hex[:12]}"
-    with psycopg.connect(admin_url, autocommit=True) as admin:
-        admin.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name)))
-    try:
-        yield urlsplit(admin_url)._replace(path=f"/{name}").geturl()
-    finally:
-        with psycopg.connect(admin_url, autocommit=True) as admin:
-            admin.execute(
-                sql.SQL("DROP DATABASE IF EXISTS {} WITH (FORCE)").format(sql.Identifier(name))
-            )
-
-
-@pytest.fixture
-def conn(database_url: str) -> Iterator[psycopg.Connection]:
-    with psycopg.connect(database_url, autocommit=True) as connection:
-        yield connection
 
 
 def test_applies_shipped_migrations_and_enables_pgvector(conn: psycopg.Connection) -> None:

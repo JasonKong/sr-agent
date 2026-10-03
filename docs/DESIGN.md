@@ -123,41 +123,50 @@ flowchart LR
 
 ### 3.3 Entities
 
+The tables live in three Postgres schemas, created by the migrations in `sr_db`. The value lists for every status-like column are defined once in `sr_db.domain` as `StrEnum`s and enforced by matching `CHECK` constraints. Tests keep the two in step.
+
+Schema rules:
+
+- **Prefixed text ids.** Every id carries its table's prefix (`sr_db.domain.ID_PREFIX`). Referrals use the human-facing forms `GR-10234` (Composer) and `HR-55210` (Hub); everything else is `prefix_digits`, such as `dl_8812` for a delivery. A bare id in evidence or a log line therefore says what kind of record it is, which helps both CS users and the model. The simulator assigns ids, so a fixed seed gives identical ids.
+- **No foreign keys between systems.** Links between Composer and Hub are plain ids (`hub_referral_id`, `source_ref`, `recipient_clinic_ref`, `hub_action_ref`), because the link can be missing, as in `F04`. Foreign keys inside a system are enforced, and every foreign-key column is indexed.
+- **Text columns with `CHECK` lists rather than Postgres enum types.** These are easier to extend with forward-only migrations.
+- **Timestamps are `timestamptz` with no defaults.** The simulator sets every time from its anchor time.
+
 **Composer schema**
 
-| Entity | Key fields | Notes |
+| Table (id prefix) | Key columns | Notes |
 | --- | --- | --- |
-| `gp_practice` | id, name, pms\_vendor, status | |
-| `gp_user` | id, practice\_id, name, role | The referrer |
-| `pms_connection` | id, practice\_id, vendor, auth\_status, token\_expires\_at | GP PMS session used for document fetches and filing |
-| `patient_snapshot` | id, synthetic\_nhi, name, date\_of\_birth | Synthetic only; never leaves the MCP server unmasked |
-| `referral` | id, display\_id, practice\_id, gp\_user\_id, patient\_id, recipient\_clinic\_ref, status, error\_level, hub\_referral\_id, created\_at, submitted\_at, sent\_at | Status: DRAFT, SUBMITTED, GENERATED, SENT, RECEIVED, ACKNOWLEDGED, DECLINED, ERROR |
-| `referral_event` | id, referral\_id, event, sub\_type, detail, occurred\_at | Timeline, including errors and auto-resend actions |
-| `source_document` | id, referral\_id, title, size\_bytes, fetch\_status | Documents pulled from the GP PMS into the PDF |
-| `hub_send` | id, referral\_id, attempt\_no, http\_status, error\_message, attempted\_at | Hand-off attempts to the Hub |
-| `inbound_response` | id, referral\_id, type, received\_at, inbox\_filing\_status, filing\_error | Return-leg items filed into the GP PMS inbox |
+| `gp_practice` (`prc_`) | name, pms\_vendor, status, created\_at | Vendor: KAURI\_PMS, HARBOUR\_PMS, SUMMIT\_PMS |
+| `gp_user` (`gpu_`) | practice\_id, name, role | The referrer. Role: GP, NURSE\_PRACTITIONER |
+| `pms_connection` (`pmc_`) | practice\_id (unique), auth\_status, token\_expires\_at, updated\_at | The practice's own PMS session, used for document fetches and filing; its vendor is the practice's |
+| `patient_snapshot` (`pt_`) | practice\_id, synthetic\_nhi, given\_name, family\_name, date\_of\_birth | Synthetic only; never leaves the MCP server unmasked. `date_of_birth` is the raw text the PMS sent, so it can be empty or malformed (`F01`) |
+| `referral` (`GR-`) | practice\_id, gp\_user\_id, patient\_id, recipient\_clinic\_ref, recipient\_specialist\_ref, correlation\_id, status, error\_level, hub\_referral\_id, pdf\_size\_bytes, created\_at, submitted\_at, sent\_at | Status: DRAFT, SUBMITTED, GENERATED, SENT, RECEIVED, ACKNOWLEDGED, DECLINED, ERROR |
+| `referral_event` (`rev_`) | referral\_id, event, sub\_type, level, detail, occurred\_at | Timeline, including errors and auto-resend actions. `event` is an open UPPER\_SNAKE vocabulary; level: INFO, WARN, ERROR |
+| `source_document` (`doc_`) | referral\_id, title, size\_bytes, fetch\_status, fetch\_error | Documents pulled from the GP PMS into the PDF |
+| `hub_send` (`hs_`) | referral\_id, attempt\_no, http\_status, error\_message, attempted\_at | Hand-off attempts to the Hub; NULL `http_status` means no response |
+| `inbound_response` (`ir_`) | referral\_id, hub\_action\_ref, type, received\_at, inbox\_filing\_status, filing\_error | Return-leg items. Filing status: PENDING, FILED, FAILED, SUPPRESSED (the practice opted out of that response type) |
 
 **Hub schema**
 
-| Entity | Key fields | Notes |
+| Table (id prefix) | Key columns | Notes |
 | --- | --- | --- |
-| `clinic` | id, name, specialty\_group, status, has\_active\_account | Routing mode comes from `has_active_account` |
-| `specialist` | id, clinic\_id, name, status | |
-| `clinic_integration` | id, clinic\_id, vendor, auth\_status, token\_expires\_at, endpoint\_status | One per subscribed clinic PMS |
-| `hub_referral` | id, display\_id, source\_ref, clinic\_id, specialist\_id, routing\_mode, status, accepted\_at, created\_at | Status: NEW, VIEWED, ACKNOWLEDGED, DECLINED, CANCELLED |
-| `hub_file` | id, hub\_referral\_id, kind, fetch\_status, size\_bytes | PDF and attachment bundle |
-| `delivery` | id, hub\_referral\_id, channel, target\_ref, status, last\_error\_code, updated\_at | Channel: EMAIL, PORTAL, CLINIC\_PMS. Status: PENDING, SUCCEEDED, FAILED |
-| `delivery_attempt` | id, delivery\_id, attempt\_no, http\_status, error\_code, error\_message, latency\_ms, attempted\_at | Retries are separate rows |
-| `recipient_action` | id, hub\_referral\_id, action, actor\_ref, occurred\_at | VIEWED, DOWNLOADED, ACKNOWLEDGED, DECLINED, MESSAGE |
-| `return_callback` | id, hub\_referral\_id, action\_id, http\_status, status, attempted\_at | Hub → Composer callbacks |
+| `clinic` (`cln_`) | name, specialty\_group, status, has\_active\_account, created\_at | Routing mode comes from `has_active_account` |
+| `specialist` (`spc_`) | clinic\_id, name, status | |
+| `clinic_integration` (`ci_`) | clinic\_id, vendor, auth\_status, token\_expires\_at, endpoint\_status, updated\_at | One per clinic and vendor. Vendor: KAURI\_PMS, TASMAN\_CLINIC, RIDGELINE |
+| `hub_referral` (`HR-`) | source\_ref, correlation\_id, clinic\_id, specialist\_id, routing\_mode, status, created\_at, accepted\_at | Status: NEW, VIEWED, ACKNOWLEDGED, DECLINED, CANCELLED. `accepted_at` is NULL until ingestion succeeds; `routing_mode` is NULL until routed |
+| `hub_file` (`hf_`) | hub\_referral\_id, kind, fetch\_status, size\_bytes, fetch\_error, updated\_at | PDF and attachment bundle |
+| `delivery` (`dl_`) | hub\_referral\_id, channel, target\_ref, status, last\_error\_code, updated\_at | Channel: EMAIL, PORTAL, CLINIC\_PMS. Status: PENDING, SUCCEEDED, FAILED. Unique per referral, channel and target |
+| `delivery_attempt` (`da_`) | delivery\_id, attempt\_no, http\_status, error\_code, error\_message, latency\_ms, attempted\_at | Retries are separate rows. A delivery can fail with no attempts (`F07`) |
+| `recipient_action` (`ra_`) | hub\_referral\_id, action, actor\_ref, occurred\_at | VIEWED, DOWNLOADED, ACKNOWLEDGED, DECLINED, MESSAGE |
+| `return_callback` (`rc_`) | hub\_referral\_id, action\_id, attempt\_no, http\_status, status, attempted\_at | Hub → Composer callbacks |
 
-**Knowledge (shared)**
+**Knowledge schema**
 
-| Entity | Key fields | Notes |
+| Table (id prefix) | Key columns | Notes |
 | --- | --- | --- |
-| `support_ticket` | id, referral\_ref, clinic\_ref, title, description, resolution, root\_cause\_code, created\_at, resolved\_at | Written in varied CS styles; source for RAG and for eval wording |
-| `runbook` | id, error\_code, title, body\_markdown | One per failure code, plus general guides (routing, legs, vendors) |
-| `knowledge_chunk` | id, source\_type, source\_id, error\_code, text, metadata, embedding, tsv | Built by ingestion (section 7.3) |
+| `support_ticket` (`tkt_`) | referral\_ref, clinic\_ref, title, description, resolution, root\_cause\_code, created\_at, resolved\_at | Written in varied CS styles; source for RAG and for eval wording |
+| `runbook` (`rb_`) | slug, error\_code, title, body\_markdown, updated\_at | One per failure code, plus general guides (`error_code` NULL) |
+| `knowledge_chunk` | source\_type, source\_id, error\_code, text, metadata, embedding, tsv | Added in T4.1, once the embedding model (and so the vector size) is chosen |
 
 **Logs.** One JSON object per line, one file per service: `composer-web`, `composer-worker`, `hub-api`, `hub-worker`. Fields: `timestamp`, `level`, `service`, `referral_id` (the id native to that system), `correlation_id` (shared across both systems for one referral), `leg`, `event`, `error_code`, `message`.
 
