@@ -25,8 +25,13 @@ class SimConfig:
     referrals: int = 2000
     history_days: int = 90
     failure_rate: float = 0.15  # share of referrals given an injected failure (F01-F11)
+    distractor_rate: float = 0.05  # share given a distractor (DESIGN.md section 3.5)
 
     def __post_init__(self) -> None:
+        if not 0 <= self.distractor_rate <= 0.2:
+            raise ValueError(
+                f"distractor_rate must be between 0 and 0.2, got {self.distractor_rate}"
+            )
         if not 0 <= self.failure_rate <= 0.5:
             raise ValueError(f"failure_rate must be between 0 and 0.5, got {self.failure_rate}")
         if self.anchor_time.tzinfo is None:

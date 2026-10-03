@@ -42,6 +42,7 @@ from sr_db.domain import (
     RoutingMode,
 )
 from sr_simulator.config import NZ, SimConfig
+from sr_simulator.distractors import assign_distractors
 from sr_simulator.faults import assign_faults
 from sr_simulator.plan import ClinicInfo, PlannedDelivery, Practice, ReferralPlan
 from sr_simulator.rng import derive_seed, rng_for
@@ -67,7 +68,7 @@ from sr_simulator.rows import (
     Specialist,
     World,
 )
-from sr_simulator.scenario import injections, load_scenarios
+from sr_simulator.scenario import injections, load_distractors, load_scenarios
 from sr_simulator.timeline import created_at
 
 # Fictional names. Vendor words (Kauri, Harbour, Summit, Tasman, Ridgeline) are avoided.
@@ -491,6 +492,43 @@ class _Emitter:
             )
             return
 
+        refreshed = (
+            plan.pms_auth_refreshed_at if delivery.channel is DeliveryChannel.CLINIC_PMS else None
+        )
+        if refreshed is not None and self.happened(refreshed):  # distractor: token refreshed
+            first, code = delivery.attempted_at, DeliveryErrorCode.AUTH_TOKEN_EXPIRED.value
+            self.log(
+                first, "hub-worker", ERROR, hub_id, corr, "deliver", "CLINIC_PMS_AUTH_FAILED",
+                f"Clinic PMS {target}: authentication failed, token expired; refreshing token",
+                code,
+            )  # fmt: skip
+            self.log(
+                first + (refreshed - first) / 2, "hub-worker", INFO, hub_id, corr, "deliver",
+                "TOKEN_REFRESHED", f"Clinic PMS {target}: token refreshed; retrying {delivery_id}",
+            )  # fmt: skip
+            self.log(
+                refreshed, "hub-worker", INFO, hub_id, corr, "deliver", "DELIVERY_SUCCEEDED",
+                f"{delivery.channel.value} {delivery_id} to {target}: HTTP {delivery.http_status} "
+                f"in {delivery.latency_ms} ms (attempt 2)",
+            )  # fmt: skip
+            world.deliveries.append(
+                Delivery(
+                    delivery_id, hub_id, delivery.channel, target, DeliveryStatus.SUCCEEDED,
+                    code, refreshed,
+                )
+            )  # fmt: skip
+            world.delivery_attempts += [
+                DeliveryAttempt(
+                    f"da_{delivery_no * 10 + 1}", delivery_id, 1, 401, code, "Token expired",
+                    120, first,
+                ),
+                DeliveryAttempt(
+                    f"da_{delivery_no * 10 + 2}", delivery_id, 2, delivery.http_status, None,
+                    None, delivery.latency_ms, refreshed,
+                ),
+            ]  # fmt: skip
+            return
+
         done_ok = self.happened(delivery.attempted_at)
         world.deliveries.append(
             Delivery(
@@ -542,6 +580,11 @@ class _Emitter:
         elif compose_ok and self.happened(plan.submitted_at):
             status, submitted_at = ReferralStatus.SUBMITTED, plan.submitted_at
             events.append((plan.submitted_at, "SUBMITTED", None, INFO, "Submitted by the GP"))
+        if plan.note is not None:  # free text from the GP; a distractor may hide an injection
+            self.log(
+                plan.submitted_at, "composer-web", INFO, referral_id, plan.correlation_id,
+                "compose", "REFERRAL_NOTE", f'GP note to the clinic: "{plan.note}"',
+            )  # fmt: skip
 
         if compose_ok and self.happened(plan.generated_at):
             fetched = 0
@@ -612,9 +655,25 @@ class _Emitter:
                 error_level = ErrorLevel.NON_CRITICAL
         if hub_id is not None:
             status, sent_at = ReferralStatus.SENT, plan.sent_at
-            world.hub_sends.append(
-                HubSend(f"hs_{number * 10 + 1}", referral_id, 1, 201, None, plan.sent_at)
-            )
+            if plan.hub_send_recovered is not None:  # distractor: the resend worked
+                first_try, http_status = plan.hub_send_recovered
+                message = f"Hub returned HTTP {http_status}"
+                world.hub_sends.append(
+                    HubSend(
+                        f"hs_{number * 10 + 1}", referral_id, 1, http_status, message, first_try
+                    )
+                )
+                events.append((first_try, "HUB_SEND_FAILED", None, ERROR, f"HTTP {http_status}"))
+                if plan.auto_resend_at is not None:
+                    detail = "Hub has not confirmed the referral; resending"
+                    events.append((plan.auto_resend_at, "AUTO_RESEND", None, INFO, detail))
+                world.hub_sends.append(
+                    HubSend(f"hs_{number * 10 + 2}", referral_id, 2, 201, None, plan.sent_at)
+                )
+            else:
+                world.hub_sends.append(
+                    HubSend(f"hs_{number * 10 + 1}", referral_id, 1, 201, None, plan.sent_at)
+                )
             events.append((plan.sent_at, "SENT_TO_HUB", None, INFO, f"Hub referral {hub_id}"))
             if plan.fetch_failure is not None:  # F05
                 resend_at = plan.fetch_failure[1]
@@ -728,9 +787,13 @@ def generate(config: SimConfig) -> World:
     clinics = _clinics(config, fake, world)
     plans = _plan_referrals(config, fake, practices, clinics)
 
+    overrides: dict[str, ClinicIntegration] = {}
     if config.failure_rate > 0:
         overrides = assign_faults(config, plans, clinics, injections(load_scenarios()))
         world.clinic_integrations = [overrides.get(i.id, i) for i in world.clinic_integrations]
+    if config.distractor_rate > 0:
+        params = {kind: spec.validated_params() for kind, spec in load_distractors().items()}
+        assign_distractors(config, plans, overrides, params)
 
     # The Hub numbers referrals in the order it receives them. It also receives referrals
     # from other channels, so its numbering has gaps.
@@ -761,4 +824,5 @@ def generate(config: SimConfig) -> World:
     world.labels = {
         f"GR-{p.number}": p.label for p in plans if p.label is not FailureCode.F00_NO_FAULT
     }
+    world.distractors = {f"GR-{p.number}": p.distractor for p in plans if p.distractor}
     return world

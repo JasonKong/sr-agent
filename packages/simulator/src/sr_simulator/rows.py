@@ -286,6 +286,8 @@ class World:
     # Ground truth, never written to the database: Composer id -> injected failure code.
     # Referrals without an entry are F00_NO_FAULT.
     labels: dict[str, FailureCode] = field(default_factory=dict)
+    # Composer id -> distractor kind. The true code is still `labels` (F00 when absent).
+    distractors: dict[str, str] = field(default_factory=dict)
 
     def tables(self) -> list[tuple[str, Sequence[DataclassInstance]]]:
         """(qualified table name, rows) pairs, parents before children."""

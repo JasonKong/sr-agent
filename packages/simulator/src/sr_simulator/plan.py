@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from random import Random
 
 from sr_db.domain import DeliveryChannel, DeliveryErrorCode, FailureCode, RecipientActionType
@@ -111,6 +111,12 @@ class ReferralPlan:
     pms_failure: PmsDeliveryFailure | None = field(default=None, init=False)
     filing_failure: tuple[int, str] | None = field(default=None, init=False)
 
+    # Distractor (DESIGN.md section 3.5): looks like a failure, or misleads, but the label stays.
+    distractor: str | None = field(default=None, init=False)
+    pms_auth_refreshed_at: datetime | None = field(default=None, init=False)
+    hub_send_recovered: tuple[datetime, int] | None = field(default=None, init=False)
+    note: str | None = field(default=None, init=False)
+
     def plan(self) -> None:
         self.date_of_birth_text = self.date_of_birth.strftime("%d-%m-%Y")
         self.synthetic_nhi = f"SIM{self.index:04d}"
@@ -185,6 +191,20 @@ class ReferralPlan:
         for action in self.actions:
             if action.kind is not RecipientActionType.DOWNLOADED:
                 action.callback_at = action.at + seconds(rng, 1, 10)
+
+    def delay_handoff(self, delay: timedelta) -> None:
+        """Move the successful hand-off, and everything after it, later by `delay`."""
+        self.sent_at += delay
+        self.hub_created_at += delay
+        self.file_fetched_at += delay
+        self.accepted_at += delay
+        self.accept_notified_at += delay
+        for delivery in self.deliveries:
+            delivery.attempted_at += delay
+        for action in self.actions:
+            action.at += delay
+            if action.callback_at is not None:
+                action.callback_at += delay
 
     # --- Helpers used by fault eligibility ---------------------------------------------------
 

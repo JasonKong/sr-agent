@@ -214,14 +214,27 @@ Each scenario has a stable code. The code is the ground truth for evaluation. Ea
 
 ### 3.5 Distractors
 
-Healthy data contains noise. An agent that pattern-matches on the first error it sees will get these wrong. Each distractor case is labelled with its true code (usually `F00_NO_FAULT`).
+Healthy data contains noise. An agent that pattern-matches on the first error it sees will get these wrong. Each distractor case keeps its true code (`F00_NO_FAULT` unless stated).
 
-- A transient failure that recovered: the first clinic PMS push returned 401; after re-authorisation, a later attempt succeeded.
-- The first hand-off returned 500, and the auto-resend succeeded.
-- A clinic integration is currently `EXPIRED`, but this referral was delivered before the token expired.
-- A referral was sent two minutes ago and is still within the normal processing window.
-- A past ticket for the same clinic describes a different root cause.
-- Ticket or log text contains a prompt-injection attempt ("ignore previous instructions and…").
+| Kind | True code | What the data shows | The trap |
+| --- | --- | --- | --- |
+| `recovered_pms_auth` | F00 | The first clinic PMS push returned 401; the Hub refreshed the token and the retry succeeded seconds later | An `AUTH_TOKEN_EXPIRED` error code and an ERROR log line identical to `F07`, on a delivery that `SUCCEEDED` |
+| `recovered_hub_send` | F00 | The first hand-off returned 5xx; the auto-resend 55–95 minutes later succeeded and the rest of the journey moved later | `HUB_SEND_FAILED` and `AUTO_RESEND`, as in `F04`, on a referral the Hub accepted |
+| `delivered_before_expiry` | F00 | Tag only: the last referral delivered to an `F07` clinic before its token expired | The clinic integration shows `EXPIRED` today |
+| `in_progress` | F00 | Tag only: accepted within the last 24 hours and not opened yet | Looks like `F10`, but it is too soon |
+| `injection_in_note` | the case's own | The GP's note to the clinic, logged by `composer-web`, contains instructions aimed at the agent. Half of these sit on failure cases, whose own evidence is untouched | The note is data, never instructions |
+
+Two more distractors come with the support tickets in T1.6:
+- a past ticket for the same clinic that describes a different root cause;
+- a ticket containing a prompt injection.
+
+How distractors work:
+- **Specs.** Each kind has a spec in `packages/simulator/src/sr_simulator/distractor_specs/` with the same structure as a scenario: what CS hears, the trap, its parameters, and the evidence that shows the truth. The mechanics live in `distractors.py`.
+- **Assignment.** Distractors are assigned after faults, from their own streams, so failure labels never change. `--distractor-rate` (default 0.05) is shared across kinds, and a referral gets at most one distractor.
+- **Labels.** `labels.json` records them under `distractors`.
+- **Picking cases.**
+  - `sim case CODE --distractor KIND` picks a case that has that distractor.
+  - Without `--distractor`, `sim case` picks only clean cases.
 
 ### 3.6 Reproducibility
 
@@ -393,6 +406,7 @@ Purpose: realistic, reproducible data for two systems, with labelled failures an
     - **Outcomes:** 85% acknowledged, 10% declined, 5% a message followed by an acknowledgement.
     - **Return leg:** every response except a download is returned to Composer and filed in the GP inbox.
   - **Hub numbering** has gaps, because the Hub also receives referrals from other channels. A Hub id therefore cannot be guessed from a Composer id.
+- `--distractor-rate` (default 0.05) adds the distractors in section 3.5; `sim case CODE --distractor KIND` picks one.
 - At least 300 historical tickets. They are written in varied styles: terse, chatty, wrong guesses later corrected, and mentions of other referrals. Each has a resolution and a labelled root cause.
 - One runbook per failure code, plus general runbooks: how routing works, the four legs, and vendor quirks.
 
@@ -643,7 +657,7 @@ Each milestone ends with something to demonstrate and a learning note. Each task
 - [ ] T1.2 Base generator: practices, clinics, people and healthy referrals across both systems, with seed and anchor time; synthetic NHI format.
 - [ ] T1.3 Scenario YAML format and injection for `F00` to `F11`, with a test per scenario.
 - [ ] T1.4 Structured JSONL logs for the four services, as evidence too; `sim case`.
-- [ ] T1.5 Distractor injection (section 3.5).
+- [ ] T1.5 Distractor injection (section 3.5): recovered failures, misleading current state, recent referrals and prompt injection in a GP note.
 - [ ] T1.6 Historical ticket and runbook generator.
 - [ ] M1 note: the domain model explained in my own words; screenshots of a timeline across both systems.
 

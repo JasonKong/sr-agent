@@ -1,0 +1,12 @@
+kind: delivered_before_expiry
+true_code: F00_NO_FAULT
+title: Delivered before the clinic's token expired
+cs_hears: "The specialist says it never arrived in their system."
+trap: >
+  The clinic's PMS integration shows an EXPIRED token today, which suggests F07. But this
+  referral's push happened before the token expired, and it succeeded.
+evidence:
+  - table: hub.clinic_integration
+    where: {auth_status: EXPIRED}
+  - table: hub.delivery
+    where: {channel: CLINIC_PMS, status: SUCCEEDED}
