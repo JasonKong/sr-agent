@@ -3,16 +3,19 @@
 from __future__ import annotations
 
 from sr_mcp.adapters.base import (
+    DeliveriesView,
     KnowledgeHit,
     KnowledgeSearch,
     LogQuery,
     LogRecord,
     LogSource,
     PatientFields,
+    RecipientView,
     ReferralFilters,
     ReferralStore,
     ReferralSummary,
     ReferralView,
+    ReturnPathView,
     TimelineEntry,
 )
 from sr_mcp.deps import Deps
@@ -27,11 +30,17 @@ class FakeReferralStore:
         views: dict[str, ReferralView] | None = None,
         summaries: list[ReferralSummary] | None = None,
         timelines: dict[str, list[TimelineEntry]] | None = None,
+        deliveries: dict[str, DeliveriesView] | None = None,
+        recipients: dict[str, RecipientView] | None = None,
+        return_paths: dict[str, ReturnPathView] | None = None,
     ) -> None:
         self.patients = patients or {}
         self.views = views or {}
         self.summaries = summaries or []
         self.timelines = timelines or {}
+        self.deliveries_by_id = deliveries or {}
+        self.recipients = recipients or {}
+        self.return_paths = return_paths or {}
         self.last_filters: ReferralFilters | None = None
 
     def patient_fields(self, patient_id: str) -> PatientFields | None:
@@ -46,6 +55,15 @@ class FakeReferralStore:
 
     def timeline(self, referral_id: str) -> list[TimelineEntry] | None:
         return self.timelines.get(referral_id)
+
+    def deliveries(self, referral_id: str) -> DeliveriesView | None:
+        return self.deliveries_by_id.get(referral_id)
+
+    def recipient(self, clinic_id: str) -> RecipientView | None:
+        return self.recipients.get(clinic_id)
+
+    def return_path(self, referral_id: str) -> ReturnPathView | None:
+        return self.return_paths.get(referral_id)
 
     def close(self) -> None:
         return None

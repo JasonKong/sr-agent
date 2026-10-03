@@ -120,6 +120,85 @@ class TimelineEntry(_Record):
     record_id: str  # cite this as evidence
 
 
+class DeliveryAttemptInfo(_Record):
+    id: str
+    attempt_no: int
+    http_status: int | None  # None: no response (for example a timeout)
+    error_code: str | None
+    error_message: str | None
+    latency_ms: int | None
+    attempted_at: datetime
+
+
+class DeliveryInfo(_Record):
+    id: str
+    channel: str
+    target_ref: str
+    status: str
+    last_error_code: str | None
+    updated_at: datetime
+    attempts: list[DeliveryAttemptInfo]  # may be empty when it failed before sending
+
+
+class DeliveriesView(_Record):
+    composer_id: str | None
+    hub_referral_id: str | None
+    routing_mode: str | None
+    accepted_at: datetime | None
+    note: str | None  # why there are no deliveries, when there are none
+    deliveries: list[DeliveryInfo]
+
+
+class IntegrationInfo(_Record):
+    id: str
+    vendor: str
+    auth_status: str
+    token_expires_at: datetime | None
+    endpoint_status: str
+    updated_at: datetime
+
+
+class RecipientView(_Record):
+    clinic: ClinicInfo
+    routing_mode: Literal["ELECTRONIC", "MANUAL"]  # what the Hub does for this clinic
+    specialists: list[PersonInfo]
+    integrations: list[IntegrationInfo]
+
+
+class CallbackInfo(_Record):
+    id: str
+    attempt_no: int
+    http_status: int | None
+    status: str
+    attempted_at: datetime
+
+
+class InboxFiling(_Record):
+    id: str
+    type: str
+    received_at: datetime
+    inbox_filing_status: str
+    filing_error: str | None
+
+
+class ReturnStep(_Record):
+    """One recipient action, followed back to the GP: Hub callback, then GP inbox filing."""
+
+    action_id: str
+    action: str
+    actor_ref: str | None
+    occurred_at: datetime
+    callbacks: list[CallbackInfo]  # empty for actions that are not returned (DOWNLOADED)
+    gp_inbox: InboxFiling | None
+
+
+class ReturnPathView(_Record):
+    composer_id: str | None
+    hub_referral_id: str | None
+    note: str | None
+    steps: list[ReturnStep]
+
+
 class LogRecord(_Record):
     id: str
     timestamp: datetime
@@ -167,6 +246,16 @@ class ReferralStore(Protocol):
 
     def timeline(self, referral_id: str) -> list[TimelineEntry] | None:
         """Events from both systems in time order; None when the id is unknown."""
+        ...
+
+    def deliveries(self, referral_id: str) -> DeliveriesView | None:
+        """Every delivery channel and attempt; None when the id is unknown."""
+        ...
+
+    def recipient(self, clinic_id: str) -> RecipientView | None: ...
+
+    def return_path(self, referral_id: str) -> ReturnPathView | None:
+        """Recipient actions followed back to the GP's inbox; None when the id is unknown."""
         ...
 
     def close(self) -> None: ...

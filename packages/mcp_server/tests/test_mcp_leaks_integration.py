@@ -31,6 +31,11 @@ WORLD = SimConfig(seed=11, practices=6, clinics=10, referrals=250)
 TOOL_INPUTS: dict[str, Callable[[World, str], dict[str, Any]]] = {
     "get_referral": lambda world, rid: {"referral_id": rid},
     "get_referral_timeline": lambda world, rid: {"referral_id": rid},
+    "get_deliveries": lambda world, rid: {"referral_id": rid},
+    "get_return_path": lambda world, rid: {"referral_id": rid},
+    "get_recipient": lambda world, rid: {
+        "clinic_id": next(r.recipient_clinic_ref for r in world.referrals if r.id == rid)
+    },
     "find_referrals": lambda world, rid: {
         "clinic": next(r.recipient_clinic_ref for r in world.referrals if r.id == rid),
         "limit": 20,
