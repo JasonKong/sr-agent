@@ -45,6 +45,7 @@ make install
 make check             # lint, type checks, unit tests
 make db-up             # Postgres 16 + pgvector
 make migrate
+make db-roles           # read-only login for the MCP server
 make seed              # 2000 referrals across both systems, logs, tickets, runbooks
 uv run sim case F07_CLINIC_PMS_AUTH_FAILED   # one labelled case and its evidence
 make test-integration
