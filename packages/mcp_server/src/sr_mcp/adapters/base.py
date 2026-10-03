@@ -212,14 +212,28 @@ class LogRecord(_Record):
     message: str
 
 
+LEVELS = ("INFO", "WARN", "ERROR")
+
+
 class LogQuery(_Record):
-    referral_id: str | None = None
+    referral_id: str | None = None  # the id native to the logging system
     correlation_id: str | None = None
     service: str | None = None
-    level: str | None = None
+    min_level: Literal["INFO", "WARN", "ERROR"] | None = None  # this level and above
     since: datetime | None = None
     until: datetime | None = None
     limit: int = 50
+
+
+class FailedReferral(_Record):
+    """A recorded failure, on one leg, with a short reason."""
+
+    composer_id: str | None
+    hub_id: str | None
+    leg: Literal["compose", "ingest", "deliver", "return"]
+    reason: str
+    failed_at: datetime
+    clinic_name: str | None
 
 
 class KnowledgeHit(_Record):
@@ -256,6 +270,16 @@ class ReferralStore(Protocol):
 
     def return_path(self, referral_id: str) -> ReturnPathView | None:
         """Recipient actions followed back to the GP's inbox; None when the id is unknown."""
+        ...
+
+    def failed_referrals(
+        self, since: datetime, leg: str | None, limit: int
+    ) -> list[FailedReferral]:
+        """Failures recorded since `since`, newest first."""
+        ...
+
+    def data_now(self) -> datetime:
+        """The latest time in the data: "now" for questions such as "in the last day"."""
         ...
 
     def close(self) -> None: ...

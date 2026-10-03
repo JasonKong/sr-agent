@@ -5,7 +5,7 @@ Sessions run in UTC so every time a tool returns is UTC, like the logs.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from psycopg import Connection
 from psycopg.rows import DictRow, dict_row
@@ -19,6 +19,7 @@ from sr_mcp.adapters.base import (
     DeliveriesView,
     DeliveryAttemptInfo,
     DeliveryInfo,
+    FailedReferral,
     HubSide,
     InboxFiling,
     IntegrationInfo,
@@ -77,6 +78,77 @@ SELECT * FROM (
 WHERE %(with_errors)s::boolean IS NULL OR q.has_error = %(with_errors)s::boolean
 ORDER BY q.created_at DESC, q.composer_id DESC
 LIMIT %(limit)s
+"""
+
+# Recorded failures, one row per referral and leg. Silent problems (manual routing, nobody
+# acting, a skipped source document) record no error, so they never appear here; errors that
+# later recovered (a resend that worked, a refreshed token) are not failures.
+_FAILURES = """
+WITH failures AS (
+    SELECT r.id AS composer_id, r.hub_referral_id AS hub_id, 'compose' AS leg,
+           e.event || coalesce(': ' || e.detail, '') AS reason,
+           e.occurred_at AS failed_at, r.recipient_clinic_ref AS clinic_id
+    FROM composer.referral r
+    JOIN LATERAL (
+        SELECT event, detail, occurred_at FROM composer.referral_event
+        WHERE referral_id = r.id AND level = 'ERROR' ORDER BY occurred_at DESC LIMIT 1
+    ) e ON true
+    WHERE r.status = 'ERROR'
+
+    UNION ALL
+    SELECT r.id, NULL, 'ingest',
+           'Hand-off to the Hub failed: HTTP ' || s.http_status || ' (' || s.attempts
+               || ' attempts)',
+           s.attempted_at, r.recipient_clinic_ref
+    FROM composer.referral r
+    JOIN LATERAL (
+        SELECT http_status, attempted_at, count(*) OVER () AS attempts
+        FROM composer.hub_send WHERE referral_id = r.id
+        ORDER BY attempt_no DESC LIMIT 1
+    ) s ON true
+    WHERE r.hub_referral_id IS NULL
+      AND NOT EXISTS (
+          SELECT 1 FROM composer.hub_send ok
+          WHERE ok.referral_id = r.id AND ok.http_status BETWEEN 200 AND 299
+      )
+
+    UNION ALL
+    SELECT h.source_ref, h.id, 'ingest',
+           'The Hub could not fetch the PDF: ' || coalesce(f.fetch_error, 'unknown error'),
+           f.updated_at, h.clinic_id
+    FROM hub.hub_file f JOIN hub.hub_referral h ON h.id = f.hub_referral_id
+    WHERE f.fetch_status = 'FAILED'
+
+    UNION ALL
+    SELECT h.source_ref, h.id, 'deliver',
+           d.channel || ' to ' || d.target_ref || ' failed: '
+               || coalesce(d.last_error_code, 'unknown error'),
+           d.updated_at, h.clinic_id
+    FROM hub.delivery d JOIN hub.hub_referral h ON h.id = d.hub_referral_id
+    WHERE d.status = 'FAILED'
+
+    UNION ALL
+    SELECT r.id, r.hub_referral_id, 'return',
+           'Filing ' || i.type || ' in the GP inbox failed: '
+               || coalesce(i.filing_error, 'unknown error'),
+           i.received_at, r.recipient_clinic_ref
+    FROM composer.inbound_response i JOIN composer.referral r ON r.id = i.referral_id
+    WHERE i.inbox_filing_status = 'FAILED'
+)
+SELECT f.composer_id, f.hub_id, f.leg, f.reason, f.failed_at, c.name AS clinic_name
+FROM failures f LEFT JOIN hub.clinic c ON c.id = f.clinic_id
+WHERE f.failed_at >= %(since)s AND (%(leg)s::text IS NULL OR f.leg = %(leg)s)
+ORDER BY f.failed_at DESC, f.composer_id DESC
+LIMIT %(limit)s
+"""
+
+_DATA_NOW = """
+SELECT greatest(
+    (SELECT max(occurred_at) FROM composer.referral_event),
+    (SELECT max(updated_at) FROM hub.delivery),
+    (SELECT max(occurred_at) FROM hub.recipient_action),
+    (SELECT max(created_at) FROM composer.referral)
+) AS now
 """
 
 
@@ -471,6 +543,23 @@ class PostgresReferralStore:
         return ReturnPathView(
             composer_id=composer_id, hub_referral_id=hub["id"], note=note, steps=steps
         )
+
+    # --- recent failures -----------------------------------------------------------------------
+
+    def failed_referrals(
+        self, since: datetime, leg: str | None, limit: int
+    ) -> list[FailedReferral]:
+        with self._pool.connection() as conn:
+            rows = conn.execute(_FAILURES, {"since": since, "leg": leg, "limit": limit}).fetchall()
+        return [FailedReferral(**row) for row in rows]
+
+    def data_now(self) -> datetime:
+        with self._pool.connection() as conn:
+            row = conn.execute(_DATA_NOW).fetchone()
+        if row is None or row["now"] is None:
+            return datetime.now(UTC)  # an empty database
+        now: datetime = row["now"]
+        return now
 
 
 def _with_sub_type(detail: str | None, sub_type: str | None) -> str | None:

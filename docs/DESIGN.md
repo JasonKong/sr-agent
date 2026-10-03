@@ -443,8 +443,8 @@ Purpose: read-only, privacy-safe access to both systems, built with the official
 | `get_deliveries` | `referral_id` | One delivery per channel (`EMAIL`, `PORTAL`, and `CLINIC_PMS` for each integration), each with its status, last error code and every attempt (HTTP status, error code, message, latency). A delivery can fail with no attempts (`F07`). When there are no deliveries, `note` says why: the Hub has no record, has not accepted it, or routed it `MANUAL` |
 | `get_recipient` | `clinic_id` (`cln_…`, pattern-checked) | Clinic status and active account; the routing mode that follows (`ELECTRONIC` or `MANUAL`); specialists; each integration's vendor, auth status, token expiry, endpoint health and when it last changed |
 | `get_return_path` | `referral_id` | One step per recipient action in time order. Each step shows the Hub's callbacks to Composer and the response's GP-inbox filing (status and error). Downloads have neither. No steps means nobody at the clinic has acted |
-| `search_logs` | `referral_id` or `correlation_id`, optional service, level and time window, `limit` up to 200 | Matching log lines, newest first, with truncated messages |
-| `list_failed_referrals` | `since` (for example `2h`), optional leg | Recent failures grouped by leg, each with a short reason |
+| `search_logs` | `referral_id` (`GR-` or `HR-`; resolved to the correlation id, so both systems' lines come back) or `correlation_id`; optional `service`, `min_level` (that level and above), `since`, `until`; `limit` up to 200 | Matching lines, newest first, each with an id to cite; messages over 300 characters are shortened and marked |
+| `list_failed_referrals` | `hours` (default 24, up to 120 days), optional `leg`, `limit` up to 100 | Recorded failures, newest first, each with both ids, the leg, a short reason, when and the clinic, plus counts per leg. `as_of` is 'now': the latest time in the data. Recovered errors are excluded, and so are silent problems (manual routing, nobody acting, a skipped document), which record no error |
 | `search_knowledge` | `query`, optional `error_code`, `top_k` up to 5 | Matching ticket or runbook chunks with source ids and scores |
 | `get_runbook` | `error_code` | The runbook for that code |
 
@@ -472,6 +472,7 @@ Purpose: read-only, privacy-safe access to both systems, built with the official
   - caps results at `MCP_MAX_RESULT_CHARS`, dropping list items from the end and setting `truncated`;
   - logs each call as JSON to **stderr**: tool, caller, outcome, duration, size and redactions, but never content. Stdout carries the stdio protocol.
 
+- **'Now' is the latest time in the data** (`data_now()`), not the wall clock. Simulated data stops at its anchor time, so questions like 'the last 24 hours' are answered relative to the data, and results that use it carry `as_of`.
 - **All times are UTC** (`Z`), in tool results as in logs. Mixing time zones invites wrong before-and-after reasoning.
 - **GP and specialist names are allowed**, because they are clinicians, not patients. Patients appear only as `PT-` references.
 
@@ -696,7 +697,7 @@ Each milestone ends with something to demonstrate and a learning note. Each task
 - [ ] T2.1 Server skeleton on the MCP SDK 2.x with `stdio`, adapter interfaces and fakes, the read-only database role (migration 0005), masking and the output guard, and leak tests that every tool must join.
 - [ ] T2.2 `get_referral` (cross-system resolution), `find_referrals` and `get_referral_timeline`, with contract tests of the SQL store against the simulator's ground truth.
 - [ ] T2.3 `get_deliveries`, `get_recipient` and `get_return_path`, with contract tests against the simulator.
-- [ ] T2.4 `LogSource` (JSONL), `search_logs` and `list_failed_referrals`.
+- [ ] T2.4 `LogSource` (JSONL, indexed in memory, reloads on change), `search_logs` and `list_failed_referrals`.
 - [ ] T2.5 Resources and the `diagnose_referral` prompt; Claude Desktop and Claude Code setup guide.
 - [ ] T2.6 Streamable HTTP transport with bearer-token auth.
 - [ ] M2 demo: Claude Desktop diagnoses three scenarios by hand. The note records which tool descriptions confused the model and how they were fixed.
