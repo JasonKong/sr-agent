@@ -79,7 +79,7 @@ The MCP Python SDK had moved to 2.x (`MCPServer`, an in-memory `Client(server)`)
 | --- | --- |
 | Tools / resources / prompts | 8 / 17 runbooks plus an index / 1 |
 | MCP tests | 98 unit, 54 integration (about 25 s) |
-| Mutation checks | 22 deliberate bugs across T2.1–T2.6, each caught by the intended test |
+| Mutation checks | 16 deliberate bugs (T2.1, T2.2 and T2.3: 3 each; T2.4: 4; T2.6: 3), each caught by the intended test |
 | Log index | about 37k lines in memory; reloads when the files change |
 | HTTP auth | 7 wrong `Authorization` forms refused; the token appears 0 times in logs |
 
