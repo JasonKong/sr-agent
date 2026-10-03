@@ -14,3 +14,15 @@ class DatabaseSettings(BaseSettings):
     @property
     def url(self) -> str:
         return str(self.database_url)
+
+
+class ReaderSettings(BaseSettings):
+    """`MCP_DATABASE_URL`: how the MCP server logs in, as a member of the read-only role."""
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    mcp_database_url: PostgresDsn
+
+    @property
+    def url(self) -> str:
+        return str(self.mcp_database_url)

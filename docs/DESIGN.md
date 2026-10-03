@@ -349,6 +349,7 @@ sr-agent/
 
 - `cp .env.example .env`, then `make db-up` starts Postgres 16 with pgvector on `127.0.0.1`.
 - `make migrate` (`uv run sr-db migrate`) applies SQL migrations; `make db-reset` starts again from an empty database.
+- `make db-roles` creates the MCP server's read-only login; `make mcp` runs the server over stdio.
 - `uv run sim seed` (`make seed`) loads data, writes JSONL logs to `./var/logs/` and ground truth to `./var/sim/labels.json`.
 - `uv run sim case F07_CLINIC_PMS_AUTH_FAILED` prints a labelled case and its expected evidence.
 - `uv run sr-mcp --transport stdio` runs the MCP server for Claude Desktop or Claude Code.
@@ -452,10 +453,29 @@ Purpose: read-only, privacy-safe access to both systems, built with the official
 - Resources: `runbook://{error_code}` and `guide://legs`, so clients can attach a runbook as context.
 - Prompt: `diagnose_referral(referral_id)`. A reusable diagnosis prompt that gives Claude Desktop users the same method the project agent uses.
 
+**Server design decisions (T2.1)**
+
+- **Built on the MCP Python SDK 2.x** (`MCPServer`). Tools return Pydantic models, so every tool has an output schema and structured results. Tests use the SDK's in-memory `Client(server)`, with no subprocess or network.
+- **`get_referral` returns the linked view of both systems** (T2.2). Following `hub_referral_id` is mechanical, not diagnosis. Making the model do it would spend its tool budget, and invite it to guess Hub ids. The detail of each leg stays in separate tools, so the model still chooses where to look.
+- **Logs are indexed in memory.** The JSONL `LogSource` indexes about 37k lines by correlation id and referral id, and reloads when the files change after a re-seed. CloudWatch implements the same interface.
+- **Four layers keep patient data out:**
+
+| Layer | How | Guards against |
+| --- | --- | --- |
+| Database | The server logs in as a member of `sr_reader` (migration 0005). That role has column-level `SELECT` on `patient_snapshot` (`id` and `practice_id` only), and a `SECURITY DEFINER` function `composer.patient_field_status(id)` that returns status, never values | A bug that selects patient columns: the database refuses it |
+| Adapter | The store's `patient_fields()` returns a `PT-` reference and field statuses | Tool code ever holding a raw value |
+| Output guard | `guarded_tool` scrubs every result for synthetic NHIs, real NHI formats and day-first dates, and replaces them with `[REDACTED]` (counted in `redacted`). ISO timestamps and record ids are untouched | Free text that carries identifiers, such as ticket bodies |
+| Leak tests | Every registered tool must be listed in `TOOL_INPUTS`, and is called on seeded cases through the reader role; the whole output is searched for every patient value | Proving the first three layers work, for every new tool |
+
+- **The guard also:**
+  - turns `NotFound` into a typed `NOT_FOUND` error;
+  - caps results at `MCP_MAX_RESULT_CHARS`, dropping list items from the end and setting `truncated`;
+  - logs each call as JSON to **stderr**: tool, caller, outcome, duration, size and redactions, but never content. Stdout carries the stdio protocol.
+
 **Rules for every tool**
 
-- Uses a read-only database role. No tool accepts free-form SQL.
-- Patient name, date of birth and NHI never leave the server. Results carry a masked reference such as `PT-7f3a`. Field checks report `present`, `empty` or `invalid`, never the value, so the `F01` evidence survives masking.
+- Uses a read-only database role (below). No tool accepts free-form SQL.
+- Patient name, date of birth and NHI never leave the server. Results carry a masked reference such as `PT-3f9a1c` (an HMAC of the patient id with `MCP_MASK_SALT`, stable within a deployment). Field checks report `present`, `empty` or `invalid`, never the value, so the `F01` evidence survives masking.
 - Results are capped in size (for example 8,000 characters) and say when they are truncated.
 - Unknown ids return a typed tool error (`NOT_FOUND`), never an empty success.
 - Text from tickets, logs and runbooks is returned as data inside clearly delimited fields.
@@ -598,7 +618,7 @@ The system is built as if it handled real health information, even though all da
 
 ### Access control
 
-- The MCP server uses a read-only database role.
+- The MCP server logs in as a member of `sr_reader` (`make db-roles` creates the login from `MCP_DATABASE_URL`). It has `SELECT` only, cannot read patient name, NHI or date-of-birth columns, and cannot write or create anything. Every new table needs an explicit grant in its migration; a test fails otherwise.
 - The agent can reach only the MCP server and the model API.
 - HTTP transports require a bearer token.
 - No secrets are committed; `.env` is git-ignored and `.env.example` holds placeholders only.
@@ -670,7 +690,7 @@ Each milestone ends with something to demonstrate and a learning note. Each task
 
 ### M2 MCP server
 
-- [ ] T2.1 Server skeleton with `stdio`, the adapter interfaces and the masking layer, with leak tests from the first tool onwards.
+- [ ] T2.1 Server skeleton on the MCP SDK 2.x with `stdio`, adapter interfaces and fakes, the read-only database role (migration 0005), masking and the output guard, and leak tests that every tool must join.
 - [ ] T2.2 `get_referral` (cross-system resolution), `find_referrals` and `get_referral_timeline`.
 - [ ] T2.3 `get_deliveries`, `get_recipient` and `get_return_path`.
 - [ ] T2.4 `LogSource` (JSONL), `search_logs` and `list_failed_referrals`.

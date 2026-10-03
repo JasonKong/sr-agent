@@ -1,0 +1,65 @@
+"""In-memory fakes of the adapters, for unit tests (no database, no files)."""
+
+from __future__ import annotations
+
+from sr_mcp.adapters.base import (
+    KnowledgeHit,
+    KnowledgeSearch,
+    LogQuery,
+    LogRecord,
+    LogSource,
+    PatientFields,
+    ReferralStore,
+)
+from sr_mcp.deps import Deps
+
+
+class FakeReferralStore:
+    def __init__(self, patients: dict[str, PatientFields] | None = None) -> None:
+        self.patients = patients or {}
+
+    def patient_fields(self, patient_id: str) -> PatientFields | None:
+        return self.patients.get(patient_id)
+
+    def close(self) -> None:
+        return None
+
+
+class FakeLogSource:
+    def __init__(self, records: list[LogRecord] | None = None) -> None:
+        self.records = records or []
+
+    def search(self, query: LogQuery) -> list[LogRecord]:
+        found = [
+            r
+            for r in self.records
+            if query.referral_id in (None, r.referral_id)
+            and query.correlation_id in (None, r.correlation_id)
+            and query.service in (None, r.service)
+            and query.level in (None, r.level)
+        ]
+        return sorted(found, key=lambda r: r.timestamp, reverse=True)[: query.limit]
+
+
+class FakeKnowledge:
+    def __init__(self, hits: list[KnowledgeHit] | None = None) -> None:
+        self.hits = hits or []
+
+    def search(self, query: str, *, error_code: str | None, top_k: int) -> list[KnowledgeHit]:
+        return [h for h in self.hits if error_code in (None, h.error_code)][:top_k]
+
+
+def fake_deps(
+    *,
+    store: ReferralStore | None = None,
+    logs: LogSource | None = None,
+    knowledge: KnowledgeSearch | None = None,
+    max_result_chars: int = 8000,
+) -> Deps:
+    return Deps(
+        store=store or FakeReferralStore(),
+        logs=logs or FakeLogSource(),
+        knowledge=knowledge or FakeKnowledge(),
+        max_result_chars=max_result_chars,
+        caller="test",
+    )
