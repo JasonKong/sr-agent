@@ -498,8 +498,8 @@ Purpose: read-only, privacy-safe access to both systems, built with the official
 - Results are capped in size (for example 8,000 characters) and say when they are truncated.
 - Unknown ids return a typed tool error (`NOT_FOUND`), never an empty success.
 - Text from tickets, logs and runbooks is returned as data inside clearly delimited fields.
-- Two entry points: `stdio` for Claude Desktop and Claude Code, and Streamable HTTP (stateless) for the agent.
-- HTTP requires a bearer token; `stdio` is local only.
+- Two entry points: `stdio` for Claude Desktop and Claude Code, and Streamable HTTP for the agent (`sr-mcp --transport http`, default `127.0.0.1:8765`). HTTP is stateless and returns plain JSON, with no event stream.
+- HTTP requires `Authorization: Bearer <MCP_HTTP_TOKEN>`. The token has at least 32 characters and is compared in constant time; failures get `401` and are logged without the token; `/healthz` is open ([ADR 0003](adr/0003-static-bearer-token-for-mcp-http.md)). `stdio` is local only.
 - Every call is logged with tool name, caller, duration and result size, but not result content.
 
 Acceptance:
@@ -714,7 +714,7 @@ Each milestone ends with something to demonstrate and a learning note. Each task
 - [ ] T2.3 `get_deliveries`, `get_recipient` and `get_return_path`, with contract tests against the simulator.
 - [ ] T2.4 `LogSource` (JSONL, indexed in memory, reloads on change), `search_logs` and `list_failed_referrals`.
 - [ ] T2.5 Runbook resources and the `diagnose_referral` prompt; `.mcp.json` and the Claude Desktop and Claude Code setup guide; the evidence reachability test.
-- [ ] T2.6 Streamable HTTP transport with bearer-token auth.
+- [ ] T2.6 Streamable HTTP transport (stateless, JSON) with bearer-token auth and `/healthz` (ADR 0003).
 - [ ] M2 demo: Claude Desktop diagnoses three scenarios by hand. The note records which tool descriptions confused the model and how they were fixed.
 
 ### M3 Baseline agent and evaluation

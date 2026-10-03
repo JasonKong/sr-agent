@@ -1,4 +1,4 @@
-.PHONY: install check lint typecheck test fmt db-up db-down db-reset migrate db-roles seed mcp test-integration
+.PHONY: install check lint typecheck test fmt db-up db-down db-reset migrate db-roles seed mcp mcp-http test-integration
 
 install: ## Install all workspace packages and dev tools
 	uv sync
@@ -37,6 +37,9 @@ db-roles: ## Create the MCP server's read-only login role from MCP_DATABASE_URL
 
 mcp: ## Run the MCP server over stdio (what Claude Desktop and Claude Code launch)
 	uv run sr-mcp
+
+mcp-http: ## Run the MCP server over HTTP on 127.0.0.1:8765 (bearer token: MCP_HTTP_TOKEN)
+	uv run sr-mcp --transport http
 
 seed: ## Replace simulator data with the default generated world (DESIGN.md 3.6)
 	uv run sim seed
