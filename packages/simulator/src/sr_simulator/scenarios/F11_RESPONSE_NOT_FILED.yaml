@@ -1,0 +1,28 @@
+code: F11_RESPONSE_NOT_FILED
+leg: return
+title: Specialist response not filed for the GP
+cs_hears: "The specialist never replied."
+root_cause: >
+  The specialist did respond and the Hub passed it back to Composer, but filing it into the
+  GP's PMS inbox failed, so the GP never saw it.
+recommended_action: >
+  Tell the GP the response exists, ask them to check their PMS connection, and refile the
+  response.
+escalate_to_engineering: false
+inject:
+  outcome: response_filing_failed
+  params:
+    errors:
+      - "GP PMS rejected the inbox entry: HTTP 500"
+      - "GP PMS session expired while filing"
+expect:
+  composer_status: [ACKNOWLEDGED, DECLINED]
+  hub: present
+  hub_status: [ACKNOWLEDGED, DECLINED]
+evidence:
+  - table: hub.recipient_action
+    where: {action: [ACKNOWLEDGED, DECLINED]}
+  - table: hub.return_callback
+    where: {status: SUCCEEDED}
+  - table: composer.inbound_response
+    where: {inbox_filing_status: FAILED}

@@ -1,6 +1,8 @@
 """Integration tests: writing a generated world into Postgres, and the `sim seed` command."""
 
+import json
 import time
+from pathlib import Path
 
 import psycopg
 import pytest
@@ -77,21 +79,42 @@ def test_default_size_seeds_in_a_few_seconds(migrated: psycopg.Connection) -> No
 
 def test_cli_seed(
     migrated: psycopg.Connection,
-    database_url: str,
+    migrated_url: str,
+    tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
 ) -> None:
-    monkeypatch.setenv("DATABASE_URL", database_url)
+    monkeypatch.setenv("DATABASE_URL", migrated_url)
+    labels = tmp_path / "labels.json"
 
     exit_code = main(
-        ["seed", "--seed", "3", "--practices", "3", "--clinics", "4", "--referrals", "25"]
+        [
+            *["seed", "--seed", "3", "--practices", "3", "--clinics", "4", "--referrals", "60"],
+            *["--failure-rate", "0.2", "--labels", str(labels)],
+        ]
     )
 
     assert exit_code == 0
     out = capsys.readouterr().out
     assert "composer.referral" in out
+    assert "F00=" in out
     row = migrated.execute("SELECT count(*) FROM composer.referral").fetchone()
-    assert row == (25,)
+    assert row == (60,)
+    written = json.loads(labels.read_text())
+    assert written["seed"] == 3
+    assert 0 < len(written["labels"]) <= 12
+    assert all(v.startswith("F") for v in written["labels"].values())
+
+
+def test_labels_never_reach_the_database(migrated: psycopg.Connection) -> None:
+    write_world(migrated, generate(SMALL))
+    leaked = migrated.execute(
+        """
+        SELECT count(*) FROM information_schema.columns
+        WHERE table_schema IN ('composer', 'hub') AND column_name ILIKE '%label%'
+        """
+    ).fetchone()
+    assert leaked == (0,)
 
 
 def test_cli_rejects_an_anchor_time_without_timezone(capsys: pytest.CaptureFixture[str]) -> None:

@@ -153,6 +153,15 @@ class DeliveryStatus(StrEnum):
     FAILED = "FAILED"
 
 
+class DeliveryErrorCode(StrEnum):
+    """Error codes for failed deliveries and attempts. Free text in SQL, so no CHECK list."""
+
+    AUTH_TOKEN_EXPIRED = "AUTH_TOKEN_EXPIRED"
+    TIMEOUT = "TIMEOUT"
+    PATIENT_MISMATCH = "PATIENT_MISMATCH"
+    PATIENT_INCOMPLETE = "PATIENT_INCOMPLETE"
+
+
 class RecipientActionType(StrEnum):
     VIEWED = "VIEWED"
     DOWNLOADED = "DOWNLOADED"

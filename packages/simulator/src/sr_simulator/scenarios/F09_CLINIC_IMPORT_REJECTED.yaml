@@ -1,0 +1,28 @@
+code: F09_CLINIC_IMPORT_REJECTED
+leg: deliver
+title: Clinic PMS rejected the import
+cs_hears: "It arrived, but it didn't go into the patient's file."
+root_cause: >
+  The clinic's PMS rejected the referral for a patient-matching reason, such as a name
+  mismatch or incomplete patient details. The specialist could still see it in the portal.
+recommended_action: Ask the clinic to match the patient manually in its PMS.
+escalate_to_engineering: false
+inject:
+  outcome: clinic_import_rejected
+  params:
+    rejections:
+      - http_status: 409
+        error_code: PATIENT_MISMATCH
+        message: Patient name does not match the PMS record for this NHI
+      - http_status: 422
+        error_code: PATIENT_INCOMPLETE
+        message: Patient record is missing required details
+expect:
+  composer_status: [RECEIVED]
+  hub: present
+  hub_status: [NEW, VIEWED]
+evidence:
+  - table: hub.delivery
+    where: {channel: CLINIC_PMS, status: FAILED}
+  - table: hub.delivery_attempt
+    where: {error_code: [PATIENT_MISMATCH, PATIENT_INCOMPLETE]}

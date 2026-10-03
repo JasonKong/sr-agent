@@ -24,8 +24,11 @@ class SimConfig:
     clinics: int = 40
     referrals: int = 2000
     history_days: int = 90
+    failure_rate: float = 0.15  # share of referrals given an injected failure (F01-F11)
 
     def __post_init__(self) -> None:
+        if not 0 <= self.failure_rate <= 0.5:
+            raise ValueError(f"failure_rate must be between 0 and 0.5, got {self.failure_rate}")
         if self.anchor_time.tzinfo is None:
             raise ValueError("anchor_time must include a timezone, for example +13:00")
         for name, value, upper in [

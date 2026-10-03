@@ -1,0 +1,22 @@
+code: F04_HUB_UNAVAILABLE
+leg: ingest
+title: Hub unavailable during hand-off
+cs_hears: "It has been stuck on processing."
+root_cause: >
+  The Hub returned a server error when Composer sent the referral, and Composer's automatic
+  resend failed as well, so the Hub has no record of it.
+recommended_action: >
+  Escalate to engineering with the correlation id; resend the referral once the Hub is healthy.
+escalate_to_engineering: true
+inject:
+  outcome: hub_unavailable
+  params:
+    statuses: [500, 502, 503]
+expect:
+  composer_status: [GENERATED]
+  hub: absent
+evidence:
+  - table: composer.hub_send
+    where: {http_status: [500, 502, 503]}
+  - table: composer.referral_event
+    where: {event: AUTO_RESEND}
