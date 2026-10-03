@@ -175,6 +175,30 @@ class CallbackStatus(StrEnum):
     FAILED = "FAILED"
 
 
+# --- Composer events ------------------------------------------------------------------------
+
+# The leg each Composer timeline event belongs to (DESIGN.md section 3.2). The simulator logs
+# events under these legs, and the MCP timeline labels them the same way.
+COMPOSER_EVENT_LEG: dict[str, str] = {
+    "SUBMITTED": "compose",
+    "VALIDATION_FAILED": "compose",
+    "SOURCE_DOCUMENTS_FETCHED": "compose",
+    "PDF_GENERATED": "compose",
+    "PDF_TOO_LARGE": "compose",
+    "PDF_COMPRESSION_RETRY": "compose",
+    "PDF_GENERATION_FAILED": "compose",
+    "FILED_TO_OUTBOX": "compose",
+    "SENT_TO_HUB": "ingest",
+    "HUB_SEND_FAILED": "ingest",
+    "AUTO_RESEND": "ingest",
+    "CHECK_RECEIVED": "ingest",
+    "HUB_ACCEPTED": "ingest",
+    "RESPONSE_RECEIVED": "return",
+    "RESPONSE_FILED": "return",
+    "RESPONSE_FILING_FAILED": "return",
+}
+
+
 # --- Record ids ---------------------------------------------------------------------------
 
 # Every id carries its table's prefix, so a bare id in evidence or a log line says what it

@@ -112,3 +112,10 @@ def test_rewriting_replaces_old_files(world: World, tmp_path: Path) -> None:
 
     total = sum(len(p.read_text().splitlines()) for p in tmp_path.glob("*.jsonl"))
     assert total < 200
+
+
+def test_composer_event_legs_match_the_shared_domain_map() -> None:
+    from sr_db.domain import COMPOSER_EVENT_LEG
+    from sr_simulator.generate import COMPOSER_EVENT_LOGS
+
+    assert {event: leg for event, (_, leg, _) in COMPOSER_EVENT_LOGS.items()} == COMPOSER_EVENT_LEG

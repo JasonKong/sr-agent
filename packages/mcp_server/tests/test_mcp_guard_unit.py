@@ -53,9 +53,8 @@ def _tools(server: MCPServer) -> Any:
 
 
 def test_guarded_tool_keeps_its_schema() -> None:
-    (tool,) = _tools(_server())
+    (tool,) = [t for t in _tools(_server()) if t.name == "get_notes"]
 
-    assert tool.name == "get_notes"
     assert set(tool.input_schema["properties"]) == {"referral_id", "count"}
     assert {"truncated", "redacted", "notes"} <= set(tool.output_schema["properties"])
 

@@ -9,17 +9,43 @@ from sr_mcp.adapters.base import (
     LogRecord,
     LogSource,
     PatientFields,
+    ReferralFilters,
     ReferralStore,
+    ReferralSummary,
+    ReferralView,
+    TimelineEntry,
 )
 from sr_mcp.deps import Deps
 
 
 class FakeReferralStore:
-    def __init__(self, patients: dict[str, PatientFields] | None = None) -> None:
+    """Returns canned records. Views and timelines are keyed by every id that should find them."""
+
+    def __init__(
+        self,
+        patients: dict[str, PatientFields] | None = None,
+        views: dict[str, ReferralView] | None = None,
+        summaries: list[ReferralSummary] | None = None,
+        timelines: dict[str, list[TimelineEntry]] | None = None,
+    ) -> None:
         self.patients = patients or {}
+        self.views = views or {}
+        self.summaries = summaries or []
+        self.timelines = timelines or {}
+        self.last_filters: ReferralFilters | None = None
 
     def patient_fields(self, patient_id: str) -> PatientFields | None:
         return self.patients.get(patient_id)
+
+    def get_referral(self, referral_id: str) -> ReferralView | None:
+        return self.views.get(referral_id)
+
+    def find_referrals(self, filters: ReferralFilters) -> list[ReferralSummary]:
+        self.last_filters = filters
+        return self.summaries[: filters.limit]
+
+    def timeline(self, referral_id: str) -> list[TimelineEntry] | None:
+        return self.timelines.get(referral_id)
 
     def close(self) -> None:
         return None
