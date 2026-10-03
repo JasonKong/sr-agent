@@ -26,8 +26,11 @@ class SimConfig:
     history_days: int = 90
     failure_rate: float = 0.15  # share of referrals given an injected failure (F01-F11)
     distractor_rate: float = 0.05  # share given a distractor (DESIGN.md section 3.5)
+    tickets: int = 360  # historical support tickets, before the history window
 
     def __post_init__(self) -> None:
+        if not 0 <= self.tickets <= 5000:
+            raise ValueError(f"tickets must be between 0 and 5000, got {self.tickets}")
         if not 0 <= self.distractor_rate <= 0.2:
             raise ValueError(
                 f"distractor_rate must be between 0 and 0.2, got {self.distractor_rate}"

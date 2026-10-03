@@ -1,0 +1,13 @@
+kind: misleading_ticket
+true_code: inherit
+title: A past ticket for the same clinic points the wrong way
+cs_hears: "This clinic again. Is it the same problem as last time?"
+trap: >
+  An earlier support ticket for the same clinic describes a different root cause (for
+  example a timeout when the case is an expired token). Retrieval by clinic surfaces it
+  first; the current data shows what is really wrong.
+evidence:
+  - table: knowledge.support_ticket
+    where:
+      root_cause_code:
+        [F07_CLINIC_PMS_AUTH_FAILED, F08_CLINIC_PMS_TIMEOUT, F09_CLINIC_IMPORT_REJECTED]

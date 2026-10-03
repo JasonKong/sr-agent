@@ -93,7 +93,7 @@ def test_distractors_never_change_the_failure_labels(world: World) -> None:
 
 def test_only_injections_sit_on_failure_cases(world: World) -> None:
     on_failures = {k for rid, k in world.distractors.items() if rid in world.labels}
-    assert on_failures == {"injection_in_note"}
+    assert on_failures == {"injection_in_note", "misleading_ticket"}
     injections = _of_kind(world, "injection_in_note")
     assert 0 < sum(rid in world.labels for rid in injections) < len(injections)
 

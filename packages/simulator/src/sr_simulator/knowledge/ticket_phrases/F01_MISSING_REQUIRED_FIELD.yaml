@@ -1,0 +1,43 @@
+code: F01_MISSING_REQUIRED_FIELD
+weight: 8
+clinic: account
+vendor_side: gp
+titles:
+  - "Referral won't submit"
+  - "Error when sending referral to {clinic}"
+  - "GP stuck on the referral form"
+  - "Referral fails before it goes anywhere"
+reports:
+  - "The GP keeps getting an error when they press send and the referral never leaves the practice."
+  - "The referral shows as failed straight away, before any PDF is made."
+  - "Practice says the form won't go through and they can't see why."
+  - "The GP tried three times and each time it errors out on submit."
+short_reports:
+  - "wont submit"
+  - "error on send"
+  - "fails straight away"
+guesses:
+  - "Possibly something missing in the patient's details."
+  - "Might be a validation problem on the form."
+  - "Suspect a data issue in their PMS."
+wrong_guesses:
+  - text: "Probably our side is down."
+    thing: "an outage"
+  - text: "Thought the PDF was too big."
+    thing: "the PDF size"
+findings:
+  - "Composer's validation rejected it: the patient's date of birth was not in DD-MM-YYYY format in the PMS."
+  - "Validation failed because the date of birth was empty in the patient record."
+  - "The patient's NHI number was missing, so validation stopped the referral before generation."
+short_findings:
+  - "validation failed, DOB format"
+  - "DOB blank"
+  - "NHI missing"
+resolutions:
+  - "Asked the GP to fix the patient's details in their {vendor} record and submit again; it went through."
+  - "Practice corrected the date of birth and resubmitted."
+  - "GP added the NHI to the patient record and resent successfully."
+short_resolutions:
+  - "gp fixed + resubmitted"
+  - "resent ok"
+  - "pt record fixed"

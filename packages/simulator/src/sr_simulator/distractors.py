@@ -16,6 +16,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from random import Random
+from typing import Literal
 
 from pydantic import Field
 
@@ -33,6 +34,14 @@ class DistractorContext:
     config: SimConfig
     # Clinic id -> when its PMS token expired (clinics broken by F07).
     token_expired_at: dict[str, datetime]
+    # Clinic id -> when its integration broke (F07 or F08). Every CLINIC_PMS delivery after
+    # that must fail, so distractors that move a delivery later must not cross it.
+    broken_since: dict[str, datetime]
+
+    def stays_before_breakage(self, plan: ReferralPlan, later_by: timedelta) -> bool:
+        broken = self.broken_since.get(plan.clinic.row.id)
+        delivery = plan.pms_delivery()
+        return broken is None or delivery is None or delivery.attempted_at + later_by < broken
 
     def happened(self, moment: datetime) -> bool:
         return moment <= self.config.anchor_time
@@ -42,7 +51,8 @@ class DistractorContext:
 class DistractorKind:
     params: type[Params]
     changes_data: bool
-    any_label: bool  # True: may sit on a failure case; False: F00 referrals only
+    # Which referrals it may sit on: healthy (F00) ones, failure cases, or any.
+    on: Literal["healthy", "failures", "any"]
     eligible: Callable[[ReferralPlan, DistractorContext], bool]
     apply: Callable[[ReferralPlan, Random, Params, DistractorContext], None]
 
@@ -56,7 +66,11 @@ class RecoveredPmsAuthParams(Params):
 
 def _pms_delivered_with_room(plan: ReferralPlan, ctx: DistractorContext) -> bool:
     delivery = plan.pms_delivery()
-    return delivery is not None and ctx.happened(delivery.attempted_at + timedelta(seconds=30))
+    return (
+        delivery is not None
+        and ctx.happened(delivery.attempted_at + timedelta(seconds=30))
+        and ctx.stays_before_breakage(plan, timedelta(seconds=30))
+    )
 
 
 def _recovered_pms_auth(
@@ -79,7 +93,8 @@ class RecoveredHubSendParams(Params):
 
 def _resent_and_accepted_by_now(plan: ReferralPlan, ctx: DistractorContext) -> bool:
     # Must be accepted by the anchor time; otherwise it would look exactly like F04.
-    return ctx.happened(plan.accepted_at + timedelta(minutes=100))
+    later_by = timedelta(minutes=100)
+    return ctx.happened(plan.accepted_at + later_by) and ctx.stays_before_breakage(plan, later_by)
 
 
 def _recovered_hub_send(
@@ -118,6 +133,21 @@ def _tag_only(plan: ReferralPlan, rng: Random, params: Params, ctx: DistractorCo
     return None
 
 
+# --- misleading_ticket ------------------------------------------------------------------------
+
+# Failure codes whose cause sits with the recipient clinic, and the cause a misleading past
+# ticket for the same clinic describes instead.
+MISLEADING_CODE = {
+    FailureCode.F07_CLINIC_PMS_AUTH_FAILED: FailureCode.F08_CLINIC_PMS_TIMEOUT,
+    FailureCode.F08_CLINIC_PMS_TIMEOUT: FailureCode.F07_CLINIC_PMS_AUTH_FAILED,
+    FailureCode.F09_CLINIC_IMPORT_REJECTED: FailureCode.F07_CLINIC_PMS_AUTH_FAILED,
+}
+
+
+def _clinic_specific_failure(plan: ReferralPlan, ctx: DistractorContext) -> bool:
+    return plan.label in MISLEADING_CODE
+
+
 # --- injection_in_note ------------------------------------------------------------------------
 
 
@@ -139,17 +169,21 @@ def _injection_in_note(
 
 KINDS: dict[str, DistractorKind] = {
     "recovered_pms_auth": DistractorKind(
-        RecoveredPmsAuthParams, True, False, _pms_delivered_with_room, _recovered_pms_auth
+        RecoveredPmsAuthParams, True, "healthy", _pms_delivered_with_room, _recovered_pms_auth
     ),
     "recovered_hub_send": DistractorKind(
-        RecoveredHubSendParams, True, False, _resent_and_accepted_by_now, _recovered_hub_send
+        RecoveredHubSendParams, True, "healthy", _resent_and_accepted_by_now, _recovered_hub_send
     ),
     "delivered_before_expiry": DistractorKind(
-        NoParams, False, False, _delivered_before_expiry, _tag_only
+        NoParams, False, "healthy", _delivered_before_expiry, _tag_only
     ),
-    "in_progress": DistractorKind(NoParams, False, False, _recent_and_unread, _tag_only),
+    "in_progress": DistractorKind(NoParams, False, "healthy", _recent_and_unread, _tag_only),
     "injection_in_note": DistractorKind(
-        InjectionParams, True, True, _submitted, _injection_in_note
+        InjectionParams, True, "any", _submitted, _injection_in_note
+    ),
+    # Tag only here; tickets.py writes the misleading past ticket for the case's clinic.
+    "misleading_ticket": DistractorKind(
+        NoParams, False, "failures", _clinic_specific_failure, _tag_only
     ),
 }
 
@@ -167,7 +201,11 @@ def assign_distractors(
         for i in overrides.values()
         if i.auth_status is AuthStatus.EXPIRED and i.token_expires_at is not None
     }
-    ctx = DistractorContext(config, expired)
+    broken = {
+        i.clinic_id: i.token_expires_at if i.auth_status is AuthStatus.EXPIRED else i.updated_at
+        for i in overrides.values()
+    }
+    ctx = DistractorContext(config, expired, {k: v for k, v in broken.items() if v is not None})
     kinds = [kind for kind in KINDS if kind in params]
     total = round(config.distractor_rate * len(plans))
     order = list(kinds)
@@ -186,7 +224,10 @@ def assign_distractors(
                 if plan.label is FailureCode.F00_NO_FAULT:
                     by_clinic[plan.clinic.row.id] = plan
             chosen = list(by_clinic.values())[: quotas[name]]
-        elif kind.any_label:
+        elif kind.on == "failures":
+            failures = [p for p in free if p.label is not FailureCode.F00_NO_FAULT]
+            chosen = rng.sample(failures, min(quotas[name], len(failures)))
+        elif kind.on == "any":
             assert isinstance(kind_params, InjectionParams)
             on_failures = round(quotas[name] * kind_params.failure_share)
             failures = [p for p in free if p.label is not FailureCode.F00_NO_FAULT]

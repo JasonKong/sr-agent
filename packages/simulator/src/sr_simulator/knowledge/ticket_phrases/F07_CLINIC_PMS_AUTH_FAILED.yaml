@@ -1,0 +1,43 @@
+code: F07_CLINIC_PMS_AUTH_FAILED
+weight: 12
+clinic: integration
+vendor_side: clinic
+titles:
+  - "Referral not showing in {clinic}'s PMS"
+  - "Clinic not receiving referrals in their system"
+  - "{clinic} says nothing coming into {vendor}"
+  - "Referrals missing from clinic PMS since last week"
+reports:
+  - "The clinic says referrals have stopped turning up in their PMS, though they can see the email notice."
+  - "Specialist says the referral never arrived in their system."
+  - "The clinic got the email but the referral isn't in their {vendor} inbox."
+  - "Nothing from us has landed in the clinic's PMS for a few days."
+short_reports:
+  - "not in clinic pms"
+  - "spec says never arrived in system"
+  - "nothing into {vendor}"
+guesses:
+  - "Possibly their connection to us has lapsed."
+  - "Might be an authorisation problem."
+  - "Could be their integration login."
+wrong_guesses:
+  - text: "Looks like their PMS is down again, probably timing out."
+    thing: "a timeout"
+  - text: "Thought the patient details didn't match."
+    thing: "a patient mismatch"
+findings:
+  - "The clinic's PMS token had expired, so every push since then failed at authentication before any attempt was recorded. Email and portal were fine."
+  - "Integration auth status was EXPIRED; the clinic PMS delivery failed with AUTH_TOKEN_EXPIRED and no attempts."
+  - "Auth failure on the {vendor} integration: token expired. Several recent referrals to the clinic affected."
+short_findings:
+  - "token expired, auth failed"
+  - "AUTH_TOKEN_EXPIRED"
+  - "integration expired"
+resolutions:
+  - "Asked the clinic to re-authorise their PMS connection, then resent the affected referrals."
+  - "Clinic re-authorised {vendor}; resent everything since the expiry."
+  - "Walked the practice manager through re-authorising; resends went through."
+short_resolutions:
+  - "clinic reauthed, resent"
+  - "reauth + resend"
+  - "resent after reauth"

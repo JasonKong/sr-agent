@@ -45,6 +45,7 @@ CI (`.github/workflows/ci.yml`) runs `make check` and, against a Postgres servic
 - Python 3.12, type hints everywhere, mypy strict. Validate data at boundaries with Pydantic; treat model output as untrusted input.
 - Configuration comes from environment variables, validated at start-up. `.env` is git-ignored and local-only.
 - Every data source goes through an adapter interface, never called directly from tool or agent code.
+- Knowledge: ticket phrase banks and styles in `knowledge/ticket_phrases/` and `knowledge/ticket_styles.yaml`; runbooks in `knowledge/runbooks/*.md`. Keep runbooks in step with the simulator; a test checks each names its scenario's evidence.
 - Distractors: one YAML per kind in `distractor_specs/`, mechanics in `distractors.py`; they never change failure labels.
 - Failure scenarios: one YAML per failure code in `packages/simulator/src/sr_simulator/scenarios/`, with the mechanics in `faults.py`. Ground-truth labels go to `var/sim/labels.json`, never to the database.
 - Schema changes are new files in `packages/db/src/sr_db/migrations/` named `NNNN_lowercase_words.sql`. Never edit a migration that has been applied; the runner rejects it.
@@ -62,3 +63,4 @@ This repository is public, and all of its data is synthetic.
   - systems: Composer and Hub;
   - vendors: Kauri PMS, Harbour PMS, Summit PMS, Tasman Clinic, Ridgeline.
 - Never commit secrets or real-looking personal data.
+- `test_simulator_public_boundary_unit.py` scans every repo file and all generated text against a hashed denylist of real names. Add words as hashes only, never in plain text.

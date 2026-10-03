@@ -31,6 +31,7 @@ from sr_simulator.rows import (
     ReturnCallback,
     SourceDocument,
     Specialist,
+    SupportTicket,
     World,
 )
 
@@ -63,6 +64,7 @@ class CaseRows:
     recipient_actions: list[RecipientAction]
     return_callbacks: list[ReturnCallback]
     logs: list[LogLine]  # from both systems, by correlation id
+    support_tickets: list[SupportTicket]  # past tickets about the recipient clinic
 
     def tables(self) -> dict[str, Sequence[DataclassInstance]]:
         return {
@@ -84,6 +86,7 @@ class CaseRows:
             "hub.delivery_attempt": self.delivery_attempts,
             "hub.recipient_action": self.recipient_actions,
             "hub.return_callback": self.return_callbacks,
+            "knowledge.support_ticket": self.support_tickets,
             "log": self.logs,
         }
 
@@ -115,6 +118,7 @@ def case_rows(world: World, referral_id: str) -> CaseRows:
         recipient_actions=[a for a in world.recipient_actions if a.hub_referral_id == hub_id],
         return_callbacks=[c for c in world.return_callbacks if c.hub_referral_id == hub_id],
         logs=[line for line in world.logs if line.correlation_id == referral.correlation_id],
+        support_tickets=[t for t in world.support_tickets if t.clinic_ref == clinic_id],
     )
 
 

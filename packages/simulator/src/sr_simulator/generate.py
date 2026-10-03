@@ -69,6 +69,7 @@ from sr_simulator.rows import (
     World,
 )
 from sr_simulator.scenario import injections, load_distractors, load_scenarios
+from sr_simulator.tickets import build_knowledge
 from sr_simulator.timeline import created_at
 
 # Fictional names. Vendor words (Kauri, Harbour, Summit, Tasman, Ridgeline) are avoided.
@@ -825,4 +826,5 @@ def generate(config: SimConfig) -> World:
         f"GR-{p.number}": p.label for p in plans if p.label is not FailureCode.F00_NO_FAULT
     }
     world.distractors = {f"GR-{p.number}": p.distractor for p in plans if p.distractor}
+    build_knowledge(config, world, plans)
     return world

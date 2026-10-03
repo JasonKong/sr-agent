@@ -1,0 +1,43 @@
+code: F00_NO_FAULT
+weight: 10
+clinic: account
+vendor_side: none
+titles:
+  - "Checking on a referral to {clinic}"
+  - "GP asking if the specialist got it"
+  - "Status check, no issue found"
+  - "Has {clinic} received this?"
+reports:
+  - "The GP wanted to know whether the specialist had received the referral yet."
+  - "Practice was worried the referral hadn't gone through because they hadn't heard back."
+  - "They asked us to confirm the clinic has it before they tell the patient."
+  - "GP said the patient was told to expect a call and nobody has rung yet."
+short_reports:
+  - "gp asking if spec got it"
+  - "status check"
+  - "no reply from clinic yet"
+guesses:
+  - "Probably fine, just hasn't been actioned yet."
+  - "Might still be early days."
+  - "Will check delivery status."
+wrong_guesses:
+  - text: "Sounds like delivery failed."
+    thing: "a delivery failure"
+  - text: "Maybe the clinic's PMS rejected it."
+    thing: "a rejection"
+findings:
+  - "Everything looks normal: delivered to the clinic on every channel and acknowledged by the specialist."
+  - "Referral was delivered and the specialist had viewed it; a response was still within the usual time."
+  - "Delivered the same morning; it was simply too soon for the clinic to have acted on it."
+short_findings:
+  - "all good, delivered + acked"
+  - "delivered, viewed"
+  - "delivered today, too soon"
+resolutions:
+  - "Confirmed the status to the GP. No action needed."
+  - "Shared the delivery details with the practice and suggested waiting another day or two."
+  - "Let the practice know it is with the clinic."
+short_resolutions:
+  - "told GP, nfa"
+  - "confirmed status"
+  - "advised to wait"

@@ -1,0 +1,43 @@
+code: F06_MANUAL_ROUTING
+weight: 10
+clinic: no_account
+vendor_side: none
+titles:
+  - "{clinic} says they never receive our referrals"
+  - "Referral not delivered electronically"
+  - "Clinic not getting anything from us"
+  - "Referral to new clinic didn't arrive"
+reports:
+  - "The specialist says they've never received a referral from us at all."
+  - "GP sent the referral to {clinic} and they have no record of it."
+  - "Clinic says they don't use our system and wondered how referrals reach them."
+  - "The referral looks fine at our end but nothing turned up at the clinic."
+short_reports:
+  - "clinic never gets referrals"
+  - "not delivered"
+  - "clinic has nothing"
+guesses:
+  - "Possibly the clinic isn't set up with us."
+  - "Might be how the clinic is configured."
+  - "Could be a routing thing."
+wrong_guesses:
+  - text: "Probably their PMS integration is broken."
+    thing: "their PMS integration"
+  - text: "Thought the Hub was down."
+    thing: "a Hub outage"
+findings:
+  - "The clinic has no active account, so the Hub routed the referral as manual and never delivered it electronically."
+  - "Routing mode was MANUAL: no active account at the clinic, so there were no deliveries at all."
+  - "No electronic delivery because the clinic hasn't activated an account."
+short_findings:
+  - "manual routing, no account"
+  - "clinic not active"
+  - "routed manual"
+resolutions:
+  - "Told the GP to send it another way (email or post), and passed the clinic's details to onboarding."
+  - "GP faxed it. Asked the clinic if they'd like to activate an account."
+  - "Explained manual routing to the practice; clinic contacted about activating."
+short_resolutions:
+  - "gp sent other way"
+  - "onboarding contacted"
+  - "explained manual"

@@ -234,6 +234,32 @@ class ReturnCallback:
     attempted_at: datetime
 
 
+# --- Knowledge --------------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class SupportTicket:
+    id: str
+    referral_ref: str | None
+    clinic_ref: str | None
+    title: str
+    description: str
+    resolution: str | None
+    root_cause_code: FailureCode | None
+    created_at: datetime
+    resolved_at: datetime | None
+
+
+@dataclass(frozen=True, slots=True)
+class Runbook:
+    id: str
+    slug: str
+    error_code: FailureCode | None
+    title: str
+    body_markdown: str
+    updated_at: datetime
+
+
 # --- Logs -----------------------------------------------------------------------------------
 
 
@@ -282,12 +308,16 @@ class World:
     delivery_attempts: list[DeliveryAttempt] = field(default_factory=list)
     recipient_actions: list[RecipientAction] = field(default_factory=list)
     return_callbacks: list[ReturnCallback] = field(default_factory=list)
+    support_tickets: list[SupportTicket] = field(default_factory=list)
+    runbooks: list[Runbook] = field(default_factory=list)
     logs: list[LogLine] = field(default_factory=list)
     # Ground truth, never written to the database: Composer id -> injected failure code.
     # Referrals without an entry are F00_NO_FAULT.
     labels: dict[str, FailureCode] = field(default_factory=dict)
     # Composer id -> distractor kind. The true code is still `labels` (F00 when absent).
     distractors: dict[str, str] = field(default_factory=dict)
+    # Ticket id -> knowledge distractor kind (misleading_ticket, injection_in_ticket).
+    knowledge_labels: dict[str, str] = field(default_factory=dict)
 
     def tables(self) -> list[tuple[str, Sequence[DataclassInstance]]]:
         """(qualified table name, rows) pairs, parents before children."""
@@ -310,6 +340,8 @@ class World:
             ("hub.delivery_attempt", self.delivery_attempts),
             ("hub.recipient_action", self.recipient_actions),
             ("hub.return_callback", self.return_callbacks),
+            ("knowledge.support_ticket", self.support_tickets),
+            ("knowledge.runbook", self.runbooks),
         ]
 
 
@@ -332,5 +364,7 @@ ROW_TYPES: dict[str, type[DataclassInstance]] = {
     "hub.delivery_attempt": DeliveryAttempt,
     "hub.recipient_action": RecipientAction,
     "hub.return_callback": ReturnCallback,
+    "knowledge.support_ticket": SupportTicket,
+    "knowledge.runbook": Runbook,
     "log": LogLine,  # evidence can point at log lines too
 }

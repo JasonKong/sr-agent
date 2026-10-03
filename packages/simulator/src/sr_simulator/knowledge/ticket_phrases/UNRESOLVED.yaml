@@ -1,0 +1,21 @@
+# Tickets that were closed without a confirmed cause.
+code: UNRESOLVED
+weight: 5
+clinic: account
+vendor_side: none
+titles:
+  - "Query about a referral"
+  - "Possible delivery issue"
+  - "Practice asked about {clinic}"
+reports:
+  - "The practice rang about a referral but couldn't give many details."
+  - "GP thought something was wrong but wasn't sure what."
+  - "Clinic reported an issue, then didn't reply to our follow-up."
+short_reports:
+  - "vague query"
+  - "possible issue"
+  - "unclear"
+guesses:
+  - "Not enough information to tell."
+  - "Will follow up."
+  - "Asked for more details."
