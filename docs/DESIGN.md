@@ -264,7 +264,8 @@ sr-agent/
 │   ├── learning/             # one short note per milestone: what I built, learned, measured
 │   └── guides/               # Claude Desktop / Claude Code setup, runbook authoring
 ├── packages/
-│   ├── simulator/            # Python: schemas, seed data, scenarios, logs, tickets, runbooks
+│   ├── db/                   # Python: database settings, migration runner, all SQL migrations
+│   ├── simulator/            # Python: seed data, scenarios, logs, tickets, runbooks
 │   ├── mcp_server/           # Python: tools, resources, prompts, adapters, masking, knowledge
 │   ├── agent/                # Python: diagnosis loop, output schema, audit, CLI and HTTP API
 │   ├── evals/                # Python: datasets, scorers, runners, reports
@@ -299,8 +300,9 @@ sr-agent/
 
 ### Local development
 
-- `docker compose up` starts Postgres 16 with pgvector.
-- `uv run sim migrate && uv run sim seed` loads data and writes JSONL logs to `./var/logs/`.
+- `cp .env.example .env`, then `make db-up` starts Postgres 16 with pgvector on `127.0.0.1`.
+- `make migrate` (`uv run sr-db migrate`) applies SQL migrations; `make db-reset` starts again from an empty database.
+- `uv run sim seed` loads data and writes JSONL logs to `./var/logs/`.
 - `uv run sr-mcp --transport stdio` runs the MCP server for Claude Desktop or Claude Code.
 - `uv run sra ask "Why didn't the specialist get GR-10234?"` runs the agent from the terminal.
 
@@ -311,17 +313,18 @@ sr-agent/
 Purpose: a skeleton that lints, type-checks and tests before any feature code exists.
 
 - uv workspace with the Python packages in section 6; pnpm only once the web console starts.
-- `docker-compose.yml` with Postgres 16 and pgvector; a migration runner.
+- `docker-compose.yml` with Postgres 16 and pgvector.
+- A shared `sr_db` package that every component uses for the database: `DATABASE_URL` settings validated at start-up, and a small forward-only runner for plain SQL migrations (`sr-db migrate`). The runner records a checksum per file, applies each file in its own transaction under an advisory lock, and refuses to run if an applied file was edited. All migrations live in `packages/db/src/sr_db/migrations/`, whichever component owns the tables.
 - GitHub Actions `ci.yml`: lint, type checks and unit tests for changed packages.
 - `CLAUDE.md` and a `README.md` skeleton. ADRs 0001 (languages) and 0002 (local-first runtime) are already written.
 
-Acceptance: `uv run pytest` passes on the empty project; CI is green on a pull request.
+Acceptance: `make check` passes; `make db-up && make migrate` succeeds and a second `make migrate` applies nothing; `make test-integration` passes; CI is green on a pull request.
 
 ### 7.1 Simulator (`packages/simulator`)
 
 Purpose: realistic, reproducible data for two systems, with labelled failures and distractors.
 
-- SQL migrations for the `composer`, `hub` and `knowledge` schemas in section 3.3.
+- SQL migrations (in `sr_db`, section 7.0) for the `composer`, `hub` and `knowledge` schemas in section 3.3.
 - `sim seed --seed 42 --anchor-time … --practices 30 --clinics 40 --referrals 2000 --failure-rate 0.15 --distractor-rate 0.05` fills both schemas and writes logs, tickets and runbooks.
 - `sim create-case --scenario F07_CLINIC_PMS_AUTH_FAILED [--distractor]` creates one fresh case. It prints the Composer and Hub ids, the expected root cause and the expected evidence references, for evaluation.
 - Each scenario YAML describes the rows, events, log lines and ticket templates to inject for each system.
@@ -567,7 +570,7 @@ Each milestone ends with something to demonstrate and a learning note. Each task
 ### M0 Foundation
 
 - [ ] T0.1 Scaffold the uv workspace, Ruff, mypy and pytest; add `CLAUDE.md` and the README skeleton.
-- [ ] T0.2 `docker-compose.yml` with Postgres and pgvector; migration runner.
+- [ ] T0.2 `docker-compose.yml` with Postgres and pgvector; the `sr_db` package with settings and the migration runner.
 - [ ] T0.3 CI workflow: lint, type checks and unit tests for changed packages.
 
 ### M1 Simulator: two systems, four legs

@@ -35,11 +35,15 @@ Details: [docs/DESIGN.md](docs/DESIGN.md).
 
 ## Quick start
 
-Requires [uv](https://docs.astral.sh/uv/); uv installs Python 3.12 itself if needed.
+Requires [uv](https://docs.astral.sh/uv/) (it installs Python 3.12 if needed) and Docker.
 
 ```bash
+cp .env.example .env   # local-only settings
 make install
-make check
+make check             # lint, type checks, unit tests
+make db-up             # Postgres 16 + pgvector
+make migrate
+make test-integration
 ```
 
 ## Evaluation results
