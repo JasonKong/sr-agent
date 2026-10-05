@@ -20,6 +20,9 @@ from mcp.server import MCPServer
 from sr_db.domain import FailureCode
 from sr_mcp.adapters.jsonl_logs import JsonlLogSource
 from sr_mcp.adapters.postgres import PostgresReferralStore
+from sr_mcp.adapters.postgres_knowledge import PostgresKnowledge
+from sr_mcp.knowledge.embedder import HashEmbedder
+from sr_mcp.knowledge.ingest import ingest
 from sr_mcp.server import create_server
 from sr_mcp.testing import fake_deps
 from sr_simulator.case_rows import expected_evidence
@@ -34,8 +37,10 @@ pytestmark = pytest.mark.integration
 WORLD = SimConfig(
     seed=23, practices=8, clinics=14, referrals=700, failure_rate=0.2, distractor_rate=0.12
 )
-# Ticket evidence becomes reachable with search_knowledge (T4.2).
-NOT_YET_REACHABLE = {"knowledge.support_ticket"}
+# Past tickets are context, so one is enough: a case's expected tickets are every ticket
+# about its clinic with a clinic-side cause, more than top_k can return. What matters is
+# that the trap can surface when a model looks the clinic up.
+KNOWLEDGE = "knowledge.support_ticket"
 
 
 @pytest.fixture(scope="module")
@@ -49,9 +54,12 @@ def server(
 ) -> Iterator[MCPServer]:
     write_world(migrated, world)
     write_logs(world, tmp_path)
+    ingest(migrated, HashEmbedder())
     store = PostgresReferralStore(reader_url, mask_salt="reachable")
-    yield create_server(fake_deps(store=store, logs=JsonlLogSource(tmp_path)))
+    knowledge = PostgresKnowledge(reader_url, embedder=HashEmbedder())
+    yield create_server(fake_deps(store=store, logs=JsonlLogSource(tmp_path), knowledge=knowledge))
     store.close()
+    knowledge.close()
 
 
 def _everything_about(server: MCPServer, referral_id: str) -> str:
@@ -78,6 +86,20 @@ def _everything_about(server: MCPServer, referral_id: str) -> str:
     return asyncio.run(run())
 
 
+def _knowledge_about(server: MCPServer, clinic_name: str) -> str:
+    """Search past knowledge for the clinic, as a model checking its history would."""
+
+    async def run() -> str:
+        async with Client(server) as client:
+            result = await client.call_tool(
+                "search_knowledge", {"query": f"{clinic_name} clinic PMS", "top_k": 5}
+            )
+            assert not result.is_error
+            return json.dumps(result.structured_content)
+
+    return asyncio.run(run())
+
+
 def _cases(world: World) -> list[tuple[str, str | None]]:
     cases: list[tuple[str, str | None]] = []
     for code in FailureCode:
@@ -93,14 +115,25 @@ def _cases(world: World) -> list[tuple[str, str | None]]:
 
 def test_every_expected_evidence_record_is_reachable(server: MCPServer, world: World) -> None:
     unreachable: list[str] = []
+    clinics = {c.id: c.name for c in world.clinics}
+    clinic_of = {r.id: r.recipient_clinic_ref for r in world.referrals}
+    tickets_checked = 0
     for referral_id, kind in _cases(world):
         seen = _everything_about(server, referral_id)
         code = world.labels.get(referral_id, FailureCode.F00_NO_FAULT).value
-        for evidence in expected_evidence(world, referral_id, kind):
-            if evidence.table in NOT_YET_REACHABLE:
+        expected = expected_evidence(world, referral_id, kind)
+        tickets = [e.record_id for e in expected if e.table == KNOWLEDGE]
+        if tickets:
+            tickets_checked += 1
+            found = _knowledge_about(server, clinics[clinic_of[referral_id]])
+            if not any(f'"{t}"' in found for t in tickets):
+                unreachable.append(f"{code}/{kind} {referral_id}: none of {len(tickets)} tickets")
+        for evidence in expected:
+            if evidence.table == KNOWLEDGE:
                 continue
             if evidence.record_id not in seen:
                 unreachable.append(
                     f"{code}/{kind} {referral_id}: {evidence.table} {evidence.record_id}"
                 )
     assert unreachable == []
+    assert tickets_checked > 0

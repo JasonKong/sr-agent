@@ -18,6 +18,9 @@ from mcp.types import TextContent
 
 from sr_mcp.adapters.jsonl_logs import JsonlLogSource
 from sr_mcp.adapters.postgres import PostgresReferralStore
+from sr_mcp.adapters.postgres_knowledge import PostgresKnowledge
+from sr_mcp.knowledge.embedder import HashEmbedder
+from sr_mcp.knowledge.ingest import ingest
 from sr_mcp.server import create_server
 from sr_mcp.testing import fake_deps
 from sr_simulator.config import SimConfig
@@ -45,6 +48,12 @@ TOOL_INPUTS: dict[str, Callable[[World, str], dict[str, Any]]] = {
         "clinic": next(r.recipient_clinic_ref for r in world.referrals if r.id == rid),
         "limit": 20,
     },
+    # Tickets carry synthetic NHIs and dates of birth; this query pulls them up.
+    "search_knowledge": lambda world, rid: {
+        "query": f"patient NHI date of birth missing {rid}",
+        "top_k": 5,
+    },
+    "get_runbook": lambda world, rid: {"error_code": "F01_MISSING_REQUIRED_FIELD"},
 }
 
 
@@ -89,8 +98,12 @@ def test_no_tool_leaks_patient_values(
 ) -> None:
     write_world(migrated, world)
     write_logs(world, tmp_path)
+    ingest(migrated, HashEmbedder())
     store = PostgresReferralStore(reader_url, mask_salt="leak-test")
-    server = create_server(fake_deps(store=store, logs=JsonlLogSource(tmp_path)))
+    knowledge = PostgresKnowledge(reader_url, embedder=HashEmbedder())
+    server = create_server(
+        fake_deps(store=store, logs=JsonlLogSource(tmp_path), knowledge=knowledge)
+    )
     # Full names, NHIs and dates of birth (single names alone would match ordinary words).
     secrets = {
         v
@@ -110,8 +123,12 @@ def test_no_tool_leaks_patient_values(
         return outputs
 
     try:
-        for output in asyncio.run(run()):
+        outputs = asyncio.run(run())
+        for output in outputs:
             leaked = [s for s in secrets if s in output]
             assert leaked == [], f"{tool} leaked patient values"
     finally:
         store.close()
+        knowledge.close()
+    if tool == "search_knowledge":  # it did surface tickets that had carried identifiers
+        assert any("[REDACTED]" in output for output in outputs)

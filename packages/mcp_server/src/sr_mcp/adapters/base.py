@@ -271,6 +271,7 @@ class RunbookPage(RunbookSummary):
 
 
 class KnowledgeHit(_Record):
+    chunk_id: str
     source_type: KnowledgeSource
     source_id: str
     title: str
@@ -326,7 +327,7 @@ class LogSource(Protocol):
 
 
 class KnowledgeSearch(Protocol):
-    """Runbooks, and search over past tickets and runbooks (search arrives in T4.2)."""
+    """Runbooks, and search over past tickets and runbooks."""
 
     def search(self, query: str, *, error_code: str | None, top_k: int) -> list[KnowledgeHit]: ...
 

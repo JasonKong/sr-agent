@@ -34,7 +34,7 @@ The repository has a project-scoped `.mcp.json`, so Claude Code finds the server
 ```
 
 1. Start `claude` in the repository root. Claude Code asks you to approve the project's `sr-agent` server. You can also approve it later in `/mcp`. Until then, `claude mcp list` shows it as pending approval.
-2. Run `/mcp`. `sr-agent` should show as connected, with 8 tools, the runbook resources and one prompt.
+2. Run `/mcp`. `sr-agent` should show as connected, with 10 tools, the runbook resources and one prompt. `search_knowledge` needs `make ingest` first.
 3. Ask a question (see section 4), or run the prompt with a referral id:
 
    ```

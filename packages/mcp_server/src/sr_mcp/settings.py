@@ -17,3 +17,6 @@ class McpSettings(BaseSettings):
     max_result_chars: int = Field(default=8000, ge=500)
     # Required for --transport http: the bearer token clients must send (ADR 0003).
     http_token: SecretStr | None = None
+    # Embeds search queries; must match the embedder `sr-ingest` used (DESIGN.md 7.3).
+    embedder: str = "bge-small"
+    model_dir: Path = Path("var/models")

@@ -1,4 +1,4 @@
-"""KnowledgeSearch over Postgres: runbooks now, ticket and runbook search in T4.2."""
+"""KnowledgeSearch over Postgres: hybrid search over chunks, and runbooks (DESIGN.md 7.3)."""
 
 from __future__ import annotations
 
@@ -7,10 +7,25 @@ from psycopg.rows import DictRow, dict_row
 from psycopg_pool import ConnectionPool
 
 from sr_mcp.adapters.base import KnowledgeHit, RunbookPage, RunbookSummary
+from sr_mcp.knowledge.embedder import Embedder
+from sr_mcp.knowledge.ingest import vector_literal
+from sr_mcp.knowledge.search import (
+    CANDIDATES,
+    HITS_SQL,
+    KEYWORD_SQL,
+    VECTOR_SQL,
+    SearchMode,
+    fuse,
+    keyword_query,
+)
 
 
 class PostgresKnowledge:
-    def __init__(self, url: str, *, max_connections: int = 2) -> None:
+    def __init__(
+        self, url: str, *, embedder: Embedder | None = None, max_connections: int = 2
+    ) -> None:
+        """Without an embedder, search is keyword only."""
+        self._embedder = embedder
         self._pool: ConnectionPool[Connection[DictRow]] = ConnectionPool(
             url,
             connection_class=Connection[DictRow],
@@ -23,8 +38,44 @@ class PostgresKnowledge:
     def close(self) -> None:
         self._pool.close()
 
-    def search(self, query: str, *, error_code: str | None, top_k: int) -> list[KnowledgeHit]:
-        return []  # retrieval arrives in T4.2
+    def search(
+        self,
+        query: str,
+        *,
+        error_code: str | None,
+        top_k: int,
+        mode: SearchMode = "hybrid",
+    ) -> list[KnowledgeHit]:
+        rankings: list[list[str]] = []
+        with self._pool.connection() as conn:
+            if mode in ("hybrid", "vector") and self._embedder is not None:
+                vector = vector_literal(self._embedder.embed_query(query))
+                rows = conn.execute(
+                    VECTOR_SQL,
+                    {
+                        "embedder": self._embedder.name,
+                        "code": error_code,
+                        "vector": vector,
+                        "limit": CANDIDATES,
+                    },
+                ).fetchall()
+                rankings.append([r["id"] for r in rows])
+            words = keyword_query(query)
+            if mode in ("hybrid", "keyword") and words:
+                rows = conn.execute(
+                    KEYWORD_SQL, {"query": words, "code": error_code, "limit": CANDIDATES}
+                ).fetchall()
+                rankings.append([r["id"] for r in rows])
+            ranked = fuse(rankings)[:top_k]
+            if not ranked:
+                return []
+            found = {
+                r["chunk_id"]: r
+                for r in conn.execute(HITS_SQL, {"ids": [c for c, _ in ranked]}).fetchall()
+            }
+        return [
+            KnowledgeHit(**found[chunk_id], score=round(score, 5)) for chunk_id, score in ranked
+        ]
 
     def list_runbooks(self) -> list[RunbookSummary]:
         with self._pool.connection() as conn:

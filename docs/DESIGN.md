@@ -537,6 +537,23 @@ Purpose: let the agent find how similar problems were solved before.
   - **Clean-up:** chunks whose source has gone are deleted.
   - **On the default seed:** 394 chunks, about 13 s once the model is downloaded; a second run takes 0.1 s.
 
+**Search decisions (T4.2)**
+
+- **Two ranked lists, fused with reciprocal rank fusion** (`sr_mcp.knowledge.search`):
+  - **Vector:** cosine distance to the query's embedding, comparing only chunks embedded by the same model.
+  - **Keyword:** `ts_rank_cd` over `tsv` for a query matching any of its words.
+  - **Fusion:** each list goes 20 deep. A chunk scores `sum(1 / (60 + rank))`, so the two score scales never need calibrating.
+  - **Query safety:** only `[a-z0-9]` words reach `to_tsquery`, so a query cannot inject operators.
+  - **Modes:** `mode` is hybrid, vector or keyword, for T4.4.
+- **The query embedder.** The MCP server embeds queries with `MCP_EMBEDDER` (default `bge-small`, the same as `sr-ingest`). The model loads on the first search (about 1.5 s); a search then takes 20 to 40 ms.
+- **The tools.**
+  - **`search_knowledge(query, error_code?, top_k ≤ 5)`** returns chunks with `chunk_id`, source id, code and score.
+  - **`get_runbook(error_code)`** is the checklist for a suspected code.
+  - **Their descriptions say this is context, never evidence about the referral,** and that a past ticket about the same clinic may describe a different cause.
+  - **Both are leak-tested on real tickets that carry synthetic NHIs,** and come back masked.
+- **The agent's prompt** gains a knowledge step only when both tools are present, so `sr-evals run --no-rag` runs the M3 prompt unchanged.
+- **Reachability of tickets.** The reachability test now covers ticket evidence. A case's expected tickets are every ticket about its clinic with a clinic-side cause, more than `top_k` can return, so at least one must come back when the clinic is searched for by name.
+
 Learning experiments, each recorded in the M4 learning note with numbers:
 
 - Vector-only versus keyword-only versus hybrid.

@@ -14,15 +14,15 @@ SR-Agent is a learning project for **MCP**, **RAG** and **agents**. It runs enti
 
 ## Status
 
-🚧 M0–M2 are complete: the simulated world and the MCP server (8 read-only tools, runbook resources, a diagnosis prompt, stdio and HTTP). M3 is in progress: the baseline agent (`sra ask`) works; evaluation is next. See the [implementation plan](docs/DESIGN.md#10-implementation-plan-for-claude-code).
+🚧 M0–M3 code is complete: the simulated world, the MCP server (10 read-only tools including hybrid knowledge search, runbook resources, a diagnosis prompt, stdio and HTTP), the agent (`sra ask`) and the evaluation harness (`sr-evals`). M4 (RAG) is in progress; the first model-graded numbers need an API key. See the [implementation plan](docs/DESIGN.md#10-implementation-plan-for-claude-code).
 
 | Milestone | Scope | State |
 | --- | --- | --- |
 | M0 | Workspace, tooling, CI | ✅ Done |
 | M1 | Simulator: two systems, four legs, failures, distractors, tickets and runbooks | ✅ Done |
 | M2 | MCP server | ✅ Done |
-| M3 | Baseline agent and evaluation | 🚧 In progress |
-| M4 | RAG over tickets and runbooks | — |
+| M3 | Baseline agent and evaluation | 🚧 Code done; baseline run pending |
+| M4 | RAG over tickets and runbooks | 🚧 In progress |
 | M5 | Agent hardening | — |
 | M6 | CS web console | — |
 | M7 | Optional AWS deployment | — |
