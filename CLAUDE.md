@@ -17,6 +17,7 @@ make ingest      # chunk, mask and embed tickets and runbooks into knowledge_chu
 make mcp         # run the MCP server over stdio (Claude Code uses .mcp.json; see docs/guides/claude-mcp-setup.md)
 make mcp-http    # the MCP server over HTTP on 127.0.0.1:8765, for the agent (needs MCP_HTTP_TOKEN)
 uv run sra ask "Why didn't the specialist get GR-11854?"  # the agent; needs make mcp-http and ANTHROPIC_API_KEY
+make api         # the agent's HTTP API on 127.0.0.1:8766 for the console (uv run sra serve); uv run sra openapi prints its schema
 uv run sim case F07_CLINIC_PMS_AUTH_FAILED  # one labelled case with its evidence ids (no DB needed)
 uv run sim case F00_NO_FAULT --distractor recovered_pms_auth  # a case with a distractor
 uv run sr-evals build          # rebuild the frozen eval dataset (packages/evals/datasets/v1.json)

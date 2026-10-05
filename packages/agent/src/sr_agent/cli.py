@@ -1,4 +1,5 @@
-"""`sra ask`: put a question to the diagnosis agent from the terminal.
+"""`sra`: ask the diagnosis agent from the terminal (`sra ask`), or serve its HTTP API
+(`sra serve`, `sra openapi` for its schema).
 
 The answer goes to stdout; a trace of each model and tool call goes to stderr as it
 happens. `--json` prints the whole run record instead of the answer. The MCP server must
@@ -21,7 +22,8 @@ from typing import TextIO, get_args
 from pydantic import ValidationError
 
 from sr_agent.anthropic_model import AnthropicModel
-from sr_agent.audit import PostgresAudit
+from sr_agent.api import create_app
+from sr_agent.audit import AuditStore, MemoryAudit, PostgresAudit
 from sr_agent.diagnosis import Diagnosis
 from sr_agent.loop import (
     AgentEvent,
@@ -117,7 +119,72 @@ def _parser() -> argparse.ArgumentParser:
     ask.add_argument("--time-limit", type=float, help="seconds; default SRA_TIME_LIMIT_S or 60")
     ask.add_argument("--json", action="store_true", help="print the whole run as JSON")
     ask.add_argument("--log-json", action="store_true", help="JSON log lines instead of a trace")
+    serve = commands.add_parser("serve", help="run the HTTP API for the CS console")
+    serve.add_argument("--host", default="127.0.0.1")
+    serve.add_argument("--port", type=int, default=8766)
+    commands.add_parser("openapi", help="print the HTTP API's OpenAPI schema")
     return parser
+
+
+def _serve(args: argparse.Namespace, settings: AgentSettings) -> int:
+    import uvicorn
+
+    if settings.mcp_token is None:
+        print("sra: set MCP_HTTP_TOKEN (the MCP server's bearer token) in .env", file=sys.stderr)
+        return 2
+    key = settings.anthropic_api_key
+    try:
+        model = AnthropicModel(
+            model=settings.model,
+            effort=settings.effort,
+            fallback=settings.fallback == "default",
+            api_key=key.get_secret_value() if key else None,
+            timeout_s=settings.time_limit_s,
+        )
+    except ModelUnavailable as error:
+        print(f"sra: {error}", file=sys.stderr)
+        return 2
+    audit_url = settings.audit_database_url
+    audit: AuditStore = PostgresAudit(audit_url.get_secret_value()) if audit_url else MemoryAudit()
+    if audit_url is None:
+        print(
+            "sra: no SRA_AUDIT_DATABASE_URL, so diagnoses are kept in memory only", file=sys.stderr
+        )
+    app = create_app(
+        model_for=lambda: model,
+        connect=connect_http,
+        audit=audit,
+        mcp_url=settings.mcp_url,
+        mcp_token=settings.mcp_token.get_secret_value(),
+        api_token=settings.api_token.get_secret_value() if settings.api_token else None,
+        limits=Limits(
+            max_tool_calls=settings.max_tool_calls,
+            time_limit_s=settings.time_limit_s,
+            token_budget=settings.token_budget,
+        ),
+        prompt_version=settings.prompt,
+        max_concurrent=settings.api_max_concurrent,
+        cors_origins=[o.strip() for o in settings.api_cors_origins.split(",") if o.strip()],
+    )
+    uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
+    return 0
+
+
+def openapi_schema() -> dict[str, object]:
+    """The API's OpenAPI schema, without starting it or needing any credentials."""
+
+    def no_model() -> ModelClient:
+        raise RuntimeError("the schema needs no model")
+
+    app = create_app(
+        model_for=no_model,
+        connect=connect_http,
+        audit=MemoryAudit(),
+        mcp_url="",
+        mcp_token="",
+        api_token=None,
+    )
+    return app.openapi()
 
 
 def main(
@@ -127,11 +194,16 @@ def main(
     connect: Connect = connect_http,
 ) -> int:
     args = _parser().parse_args(argv)
+    if args.command == "openapi":
+        print(json.dumps(openapi_schema(), indent=2))
+        return 0
     try:
         settings = AgentSettings()
     except ValidationError as error:
         print(f"sra: invalid configuration: {error}", file=sys.stderr)
         return 2
+    if args.command == "serve":
+        return _serve(args, settings)
     if settings.mcp_token is None:
         print("sra: set MCP_HTTP_TOKEN (the MCP server's bearer token) in .env", file=sys.stderr)
         return 2

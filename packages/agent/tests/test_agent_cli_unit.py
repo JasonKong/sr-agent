@@ -167,3 +167,21 @@ def test_missing_model_credentials_stop_before_connecting(
 
     assert code == 2
     assert "ANTHROPIC_API_KEY" in capsys.readouterr().err
+
+
+def test_the_openapi_schema_prints_without_credentials(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.delenv("MCP_HTTP_TOKEN")
+    assert main(["openapi"]) == 0
+    schema = json.loads(capsys.readouterr().out)
+    assert schema["info"]["title"] == "SR-Agent API"
+    assert "/diagnoses" in schema["paths"]
+
+
+def test_serve_needs_the_mcp_token(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.delenv("MCP_HTTP_TOKEN")
+    assert main(["serve"]) == 2
+    assert "MCP_HTTP_TOKEN" in capsys.readouterr().err

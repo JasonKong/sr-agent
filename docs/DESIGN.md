@@ -726,6 +726,21 @@ Purpose: turn a CS question into a verified, plain-English diagnosis.
 - **`AuditStore`** (`sr_agent.audit`) has a Postgres implementation and an in-memory one, for tests and for the HTTP API without an audit database. `sra ask` audits each run when `SRA_AUDIT_DATABASE_URL` is set.
 - **Cost per diagnosis** (`AgentRun.cost_usd`, `sr_agent.pricing`, list prices) prices each turn by the model that served it, so a fallback turn costs what it really costs. A model with no price gives no estimate rather than a wrong one. The eval reports use the same figure.
 
+**HTTP API (T5.4)**
+
+- **`uv run sra serve`** (`make api`, default `127.0.0.1:8766`) serves a FastAPI app (`sr_agent.api`). Its OpenAPI schema (`uv run sra openapi`) is the console's contract: TypeScript types are generated from it (ADR 0001).
+  - **`POST /diagnoses`** `{question, referral_id?}` runs one diagnosis and returns it, with its id, outcome, tool calls, cost and latency. With `Accept: text/event-stream`, it streams `started`, `model_call`, `tool_call` and then `done` (the result) or `error`.
+  - **`GET /diagnoses/{id}`** returns one diagnosis from the audit; `GET /diagnoses?limit=` returns the user's history, newest first; `POST /diagnoses/{id}/feedback` takes `{rating, correct_code?, comment?}`.
+  - **`GET /healthz`** is open.
+- **One demo user for now.**
+  - An optional bearer token, `SRA_API_TOKEN`, protects every other route. It is compared in constant time, and the scheme is case-insensitive.
+  - The console's dev server adds the token, so the browser never holds it.
+- **Against cost abuse:**
+  - at most `SRA_API_MAX_CONCURRENT` (default 2) diagnoses at once, `429` when busy;
+  - questions of 5 to 2,000 characters.
+- **Service failures.** The MCP server is connected per request: the API starts even when it is down, and a failure of MCP or the model API is a `503` with the reason.
+- **Where diagnoses are kept:** the Postgres audit when `SRA_AUDIT_DATABASE_URL` is set, otherwise in memory.
+
 Acceptance:
 - Each scenario is diagnosed correctly in a live local run.
 - Schema validation never fails silently.
@@ -939,7 +954,7 @@ Each milestone ends with something to demonstrate and a learning note. Each task
 - [ ] T5.2 Output safety checks (identifiers, clinical advice); injection distractors pass.
 - [ ] T5.3 Audit log and cost tracking per diagnosis.
 - [ ] T5.4 HTTP API for the agent.
-- [ ] T5.5 Optional: rebuild the agent on a framework, compare on the eval set, and write an ADR.
+- [ ] T5.5 Optional: rebuild the agent on a framework, compare on the eval set, and write an ADR. (Deferred: the comparison needs eval runs against the model API first.)
 - [ ] M5 note: final accuracy against the section 1 targets; cost and latency profile.
 
 ### M6 CS console
