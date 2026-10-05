@@ -76,9 +76,11 @@ from sr_evals.grader_items import (
     CALIBRATION_V1,
     HAND_LABELS_V1,
     calibration_items,
+    labelling_sample,
     load_calibration,
     report_items,
     write_calibration,
+    write_labelling_template,
 )
 from sr_evals.oracle import OracleModel, QuestionOracle
 from sr_evals.report import (
@@ -442,7 +444,30 @@ def _grade_all(
     return asyncio.run(grade_items(items, model_for=lambda item: model))
 
 
+def _sample_for_labelling(args: argparse.Namespace) -> int:
+    """A blind template of real answers to label by hand (TE8), never overwriting labels."""
+    if args.labels.exists():
+        print(f"sr-evals: {args.labels} exists; it may hold hand labels", file=sys.stderr)
+        return 2
+    try:
+        graded, _ = load_report(args.sample, _report_dirs(args))
+    except FileNotFoundError as error:
+        print(f"sr-evals: {error}", file=sys.stderr)
+        return 2
+    runs = (args.runs_dir or project_root() / "var" / "evals" / "runs") / graded.report_id
+    dataset = load_dataset(DATASETS[graded.dataset_version])
+    case_ids = [s.case_id for s in graded.scores]
+    items, _ = report_items(case_ids, runs, dataset, report_id=graded.report_id)
+    correct = {s.case_id: s.root_cause_correct for s in graded.scores}
+    sample = labelling_sample(items, correct, args.n)
+    write_labelling_template(sample, args.labels)
+    print(f"{len(sample)} answers to label written to {args.labels}")
+    return 0
+
+
 def _calibrate(args: argparse.Namespace) -> int:
+    if args.sample:
+        return _sample_for_labelling(args)
     if args.build:
         items = calibration_items(load_dataset(DATASET_V1))
         write_calibration(items, args.calibration)
@@ -664,6 +689,10 @@ def main(argv: list[str] | None = None, *, connect: Connect = connect_http) -> i
     calibration.add_argument("--calibration", type=Path, default=CALIBRATION_V1)
     calibration.add_argument("--labels", type=Path, default=HAND_LABELS_V1)
     calibration.add_argument("--build", action="store_true", help="rebuild the synthetic set")
+    calibration.add_argument("--sample", help="write a template of this report's answers to label")
+    calibration.add_argument("--n", type=int, default=20, help="answers in the template")
+    calibration.add_argument("--reports-dir", type=Path)
+    calibration.add_argument("--runs-dir", type=Path)
     calibration.add_argument("--out-dir", type=Path, help="default packages/evals/reports/rubric")
 
     args = parser.parse_args(argv)

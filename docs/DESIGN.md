@@ -885,7 +885,7 @@ Purpose: measure every change from the first agent onwards and catch regressions
     - the scenario's action as a good next step, and another leg's action as a wrong one;
     - four paraphrases that must pass, and three steps missing an essential action that must fail;
     - the known negatives: empty, "I don't know", and a summary about another referral.
-  - Synthetic items are easier than real mistakes. About 20 real answers labelled by hand (`grader_labels_v1.json`, TE8) are added before any rubric number is trusted.
+  - Synthetic items are easier than real mistakes. About 20 real answers labelled by hand (`grader_labels_v1.json`, TE8) are added before any rubric number is trusted. `sr-evals calibrate --sample R` writes the template from run R's answers: one property per case, alternating the two, up to half from wrong diagnoses, with no label and no grader verdict in sight. It never replaces an existing labels file.
   - The target is at least 90% agreement per criterion; agreement between repeats is reported too. Below target, the rubric gets a new version and is calibrated again.
 - **Grading a run** (`sr-evals grade R`): two requests per stored answer. `--batch` sends them through the Batch API at half the price. Results go to `packages/evals/reports/rubric/R-g1.json` and `.md`, apart from the deterministic report. `--dry-run` applies a rule instead (a summary that is not empty; the next step word for word) to test the pipeline; it is never a judge.
 

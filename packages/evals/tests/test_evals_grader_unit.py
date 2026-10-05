@@ -367,3 +367,22 @@ def test_grading_by_batch_polls_until_it_ends_and_keeps_errors_per_item() -> Non
     assert grades[1].error is not None
     assert "overloaded" in grades[1].error
     assert grades[0].cost_usd == pytest.approx(0.001)  # 2,000 tokens at the batch's half price
+
+
+def test_the_hand_labelling_sample_takes_up_to_half_from_wrong_diagnoses() -> None:
+    from sr_evals.grader_items import labelling_sample
+
+    cases = [f"F07-{n}" for n in range(1, 7)]
+    items = [
+        item(c, item_id=f"{c}-{c[:1]}", case_id=case)
+        for case in cases
+        for c in ("summary_clear", "next_step_correct")
+    ]
+    correct = {case: n <= 3 for n, case in enumerate(cases, start=1)}  # F07-4..6 wrong
+    sample = labelling_sample(items, correct, 4)
+
+    assert len(sample) == 4
+    assert sum(not correct[i.case_id or ""] for i in sample) == 2
+    assert [i.criterion for i in sample] == ["summary_clear", "next_step_correct"] * 2
+    assert all(i.label is None and i.item_id.startswith("human-") for i in sample)
+    assert labelling_sample(items, correct, 4) == sample  # deterministic

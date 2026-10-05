@@ -19,14 +19,16 @@ it, so a scenario's changed wording changes it on purpose, never silently.
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+import random
+from collections import defaultdict
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from pydantic import BaseModel
 
 from sr_db.domain import FailureCode
 from sr_evals.dataset import DATASET_DIR, Dataset, EvalCase
-from sr_evals.grader import GradeItem, Label
+from sr_evals.grader import CRITERIA, GradeItem, Label
 from sr_simulator.scenario import load_scenarios
 
 CALIBRATION_V1 = DATASET_DIR / "grader_calibration_v1.json"
@@ -244,3 +246,51 @@ def report_items(
             ),
         ]
     return items, no_answer
+
+
+LABELLING_INSTRUCTIONS = (
+    "Label each item against the rubric in docs/DESIGN.md section 7.5 (model-graded rubric), "
+    "without looking at any grader's output: set `label` to pass or fail, and say why in "
+    "`note`. Items left with a null label are not used."
+)
+
+
+def labelling_sample(
+    items: Sequence[GradeItem],
+    root_cause_correct: Mapping[str, bool],
+    n: int,
+    *,
+    seed: str = "hand-labels-v1",
+) -> list[GradeItem]:
+    """`n` real answers to label by hand: one property per case, alternating the two
+    criteria, with up to half from cases whose root cause was wrong (where answers are
+    least like the synthetic ones). Deterministic for a given run and seed."""
+    rng = random.Random(seed)
+    by_case: dict[str, list[GradeItem]] = defaultdict(list)
+    for item in items:
+        by_case[item.case_id or ""].append(item)
+    right = sorted(c for c in by_case if root_cause_correct.get(c))
+    wrong = sorted(c for c in by_case if not root_cause_correct.get(c))
+    rng.shuffle(right)
+    rng.shuffle(wrong)
+    take_wrong = min(len(wrong), n // 2)
+    picks = wrong[:take_wrong] + right[: n - take_wrong]
+    picks += wrong[take_wrong : take_wrong + n - len(picks)]
+    sample = []
+    for k, case_id in enumerate(sorted(picks)):
+        criterion = CRITERIA[k % 2]
+        item = next(i for i in by_case[case_id] if i.criterion == criterion)
+        sample.append(
+            item.model_copy(
+                update={"item_id": f"human-{item.item_id}", "source": "human", "label": None}
+            )
+        )
+    return sample
+
+
+def write_labelling_template(items: Sequence[GradeItem], path: Path) -> None:
+    document = {
+        "instructions": LABELLING_INSTRUCTIONS,
+        "items": [i.model_dump(mode="json") for i in items],
+    }
+    path.write_text(json.dumps(document, indent=2) + "\n")

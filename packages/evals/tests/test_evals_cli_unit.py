@@ -337,3 +337,34 @@ def test_an_unknown_grader_model_is_refused(
     argv += [str(tmp_path / "reports"), "--runs-dir", str(tmp_path / "runs")]
     assert main(argv) == 2
     assert "no request profile" in capsys.readouterr().err
+
+
+def test_a_labelling_template_is_sampled_from_a_runs_answers(
+    labels: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    reports, runs = tmp_path / "reports", tmp_path / "runs"
+    argv = ["run", "--dry-run", "--labels", str(labels), "--label", "all"]
+    argv += ["--reports-dir", str(reports), "--runs-dir", str(runs)]
+    assert main(argv, connect=in_process) == 0
+    [report] = list(reports.glob("*-all.json"))
+
+    template = tmp_path / "hand.json"
+    argv = ["calibrate", "--sample", report.stem, "--n", "12", "--labels", str(template)]
+    assert main([*argv, "--reports-dir", str(reports), "--runs-dir", str(runs)]) == 0
+
+    document = json.loads(template.read_text())
+    items = document["items"]
+    assert "instructions" in document
+    assert len(items) == 12
+    assert all(i["label"] is None for i in items)  # blind: no grader verdict, no label yet
+    assert {i["criterion"] for i in items} == {"summary_clear", "next_step_correct"}
+    assert len({i["case_id"] for i in items}) == 12  # one property per case
+    assert all(i["source"] == "human" for i in items)
+
+    # Unlabelled items are left out of a calibration, and an existing file is never replaced.
+    monkeypatch.chdir(tmp_path)
+    out = tmp_path / "rubric"
+    assert main(["calibrate", "--dry-run", "--labels", str(template), "--out-dir", str(out)]) == 0
+    [path] = list(out.glob("calibration-*.json"))
+    assert CalibrationReport.model_validate_json(path.read_text()).items == 60
+    assert main([*argv, "--reports-dir", str(reports), "--runs-dir", str(runs)]) == 2
