@@ -82,6 +82,7 @@ class CaseScore(BaseModel):
     cache_read_input_tokens: int
     output_tokens: int
     total_tokens: int
+    cost_usd: float | None  # each turn priced by the model that served it
     served_by: list[str]
     error: str | None = None
 
@@ -155,6 +156,7 @@ def score_case(
         cache_read_input_tokens=usage.cache_read_input_tokens if usage else 0,
         output_tokens=usage.output_tokens if usage else 0,
         total_tokens=usage.total if usage else 0,
+        cost_usd=run.cost_usd if run else None,
         served_by=run.served_by if run else [],
         error=error,
     )

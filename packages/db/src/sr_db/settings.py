@@ -26,3 +26,15 @@ class ReaderSettings(BaseSettings):
     @property
     def url(self) -> str:
         return str(self.mcp_database_url)
+
+
+class AuditorSettings(BaseSettings):
+    """`SRA_AUDIT_DATABASE_URL`: how the agent logs in to write its audit, as sr_auditor."""
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    sra_audit_database_url: PostgresDsn
+
+    @property
+    def url(self) -> str:
+        return str(self.sra_audit_database_url)

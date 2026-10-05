@@ -50,6 +50,8 @@ def score(
         "cache_read_input_tokens": 30_000,
         "output_tokens": 2_000,
         "total_tokens": 43_000,
+        # 1,000 x $4 + 10,000 x $5 + 30,000 x $0.20 + 2,000 x $20, per million tokens
+        "cost_usd": 0.1,
         "served_by": ["claude-opus-5-5"] * 3,
     }
     return CaseScore(**(fields | extra))
@@ -124,11 +126,11 @@ def test_latency_tools_tokens_and_cost() -> None:
     assert m.latency_p50_s == 20.0
     assert m.latency_p95_s == 60.0
     assert m.tool_calls_mean == pytest.approx((4 * 4 + 8) / 5)
-    # 1,000 x $4 + 10,000 x $5 + 30,000 x $0.20 + 2,000 x $20, per million tokens
     assert m.cost_per_case_usd == pytest.approx(0.1)
     assert m.cost_total_usd == pytest.approx(0.5)
     assert m.served_by == {"claude-opus-5-5": 15}
-    assert summarise(SCORES, model="fake-model").cost_per_case_usd is None
+    unpriced = [*SCORES[:-1], SCORES[-1].model_copy(update={"cost_usd": None})]
+    assert summarise(unpriced, model="m").cost_per_case_usd is None
 
 
 def test_errors_count_as_wrong_and_are_reported() -> None:

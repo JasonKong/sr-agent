@@ -26,11 +26,13 @@ class AgentSettings(BaseSettings):
     mcp_url: str = "http://127.0.0.1:8765/mcp"
     mcp_token: SecretStr | None = Field(default=None, validation_alias="MCP_HTTP_TOKEN")
     anthropic_api_key: SecretStr | None = Field(default=None, validation_alias="ANTHROPIC_API_KEY")
+    # Where each diagnosis is audited, as a member of sr_auditor (`make db-auditor`).
+    audit_database_url: SecretStr | None = None
     max_tool_calls: int = Field(default=8, ge=1)
     time_limit_s: float = Field(default=60.0, gt=0)
     token_budget: int = Field(default=200_000, ge=1_000)
 
-    @field_validator("mcp_token", "anthropic_api_key", mode="before")
+    @field_validator("mcp_token", "anthropic_api_key", "audit_database_url", mode="before")
     @classmethod
     def _empty_is_unset(cls, value: object) -> object:
         return None if value == "" else value

@@ -21,6 +21,7 @@ from typing import TextIO, get_args
 from pydantic import ValidationError
 
 from sr_agent.anthropic_model import AnthropicModel
+from sr_agent.audit import PostgresAudit
 from sr_agent.diagnosis import Diagnosis
 from sr_agent.loop import (
     AgentEvent,
@@ -94,10 +95,11 @@ class Trace:
                 run = event.run
                 calls = len(run.tool_calls)
                 served = ", ".join(dict.fromkeys(run.served_by)) or "-"
+                cost = f" · ${run.cost_usd:.3f}" if run.cost_usd is not None else ""
                 line = (
                     f"sra · {run.outcome} in {run.duration_ms / 1000:.1f} s · "
                     f"{calls} tool call{'s' if calls != 1 else ''} · {run.turns} turns · "
-                    f"tokens {_tokens(run.usage)} · served by {served}"
+                    f"tokens {_tokens(run.usage)}{cost} · served by {served}"
                 )
         print(line, file=self._out, flush=True)
 
@@ -173,6 +175,9 @@ def main(
         print(f"sra: {error}", file=sys.stderr)
         return 1
 
+    if settings.audit_database_url is not None:
+        audit = PostgresAudit(settings.audit_database_url.get_secret_value())
+        print(f"sra · audited as {audit.record(run, user='cli')}", file=sys.stderr)
     if args.json:
         print(run.model_dump_json(indent=2))
     elif run.diagnosis is not None:

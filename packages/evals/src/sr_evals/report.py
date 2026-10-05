@@ -16,8 +16,6 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from sr_agent.model import TokenUsage
-from sr_agent.pricing import cost_usd
 from sr_evals.scorers import CaseScore
 
 REPORTS_DIR = Path(__file__).resolve().parents[2] / "reports"
@@ -80,18 +78,7 @@ def summarise(scores: list[CaseScore], *, model: str) -> Metrics:
         groups["reference"][s.reference].append(s)
         if s.distractor:
             groups["distractor"][s.distractor].append(s)
-    costs = [
-        cost_usd(
-            model,
-            TokenUsage(
-                input_tokens=s.input_tokens,
-                cache_creation_input_tokens=s.cache_creation_input_tokens,
-                cache_read_input_tokens=s.cache_read_input_tokens,
-                output_tokens=s.output_tokens,
-            ),
-        )
-        for s in scores
-    ]
+    costs = [s.cost_usd for s in scores]
     priced = [c for c in costs if c is not None]
     total = sum(priced) if len(priced) == len(costs) else None
 
