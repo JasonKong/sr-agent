@@ -13,6 +13,8 @@ make migrate     # apply SQL migrations (uv run sr-db migrate); make db-reset wi
 make seed        # replace simulator data with the default world (uv run sim seed --help)
 make db-roles    # create the MCP server's read-only login (from MCP_DATABASE_URL)
 make mcp         # run the MCP server over stdio (Claude Code uses .mcp.json; see docs/guides/claude-mcp-setup.md)
+make mcp-http    # the MCP server over HTTP on 127.0.0.1:8765, for the agent (needs MCP_HTTP_TOKEN)
+uv run sra ask "Why didn't the specialist get GR-11854?"  # the agent; needs make mcp-http and ANTHROPIC_API_KEY
 uv run sim case F07_CLINIC_PMS_AUTH_FAILED  # one labelled case with its evidence ids (no DB needed)
 uv run sim case F00_NO_FAULT --distractor recovered_pms_auth  # a case with a distractor
 make test-integration          # tests marked integration, against the local Postgres
@@ -63,6 +65,10 @@ CI (`.github/workflows/ci.yml`) runs `make check` and, against a Postgres servic
 - Integration tests create their own throwaway database; never write test data into the development database.
 - Logs are structured JSON with `correlation_id`. Patient names, dates of birth and NHI numbers never appear in logs, tool results or model input.
 - Unit tests never call a real model or AWS; use `FakeModel` and fake adapters. Mark real-model tests `@pytest.mark.live`.
+- The agent (`sr_agent`):
+  - Reaches data only through MCP tools.
+  - Keeps the conversation append-only. Each reply is appended exactly as received, thinking blocks included. Never edit earlier messages, the system prompt or the tool list during a run.
+  - Tests use `FakeModel` and `FakeToolbox` from `sr_agent.testing`. They connect to the real MCP server in-process with `open_toolbox(Client(create_server(fake_deps())))`.
 - Add a dependency to the package that uses it (`uv add --package <dist-name> <dep>`), never to the workspace root. The only exception is dev tools.
 
 ## Public-repository boundary
