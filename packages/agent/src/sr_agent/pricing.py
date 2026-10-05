@@ -11,6 +11,7 @@ Sonnet 5 for Sonnet 5.5), so a run with a fallback turn still has a cost.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from sr_agent.model import TokenUsage
@@ -35,8 +36,17 @@ PRICES: dict[str, Price] = {
 }
 
 
+_SNAPSHOT_DATE = re.compile(r"-\d{8}$")
+
+
+def canonical_model(model: str) -> str:
+    """The alias of a dated snapshot id: a reply may name `claude-haiku-4-5-20251001` for a
+    request to `claude-haiku-4-5`. Other ids are returned unchanged."""
+    return _SNAPSHOT_DATE.sub("", model)
+
+
 def cost_usd(model: str, usage: TokenUsage) -> float | None:
-    price = PRICES.get(model)
+    price = PRICES.get(model) or PRICES.get(canonical_model(model))
     if price is None:
         return None
     return (

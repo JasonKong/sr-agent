@@ -82,6 +82,7 @@ from sr_evals.grader_items import (
     write_calibration,
     write_labelling_template,
 )
+from sr_evals.inspect import RunCheck, check_run, render_checks
 from sr_evals.oracle import OracleModel, QuestionOracle
 from sr_evals.report import (
     REPORTS_DIR,
@@ -543,6 +544,27 @@ def _grade(args: argparse.Namespace) -> int:
     return 0
 
 
+def _inspect(args: argparse.Namespace) -> int:
+    """A row per stored run: a report id's runs, or JSON files from `sra ask --json`."""
+    root = args.runs_dir or project_root() / "var" / "evals" / "runs"
+    checks: list[RunCheck] = []
+    errors: dict[str, str] = {}
+    for ref in args.refs:
+        given = Path(ref)
+        files = [given] if given.is_file() else sorted((root / ref).glob("*.json"))
+        if not files:
+            print(f"sr-evals: no stored runs for {ref!r} in {root}", file=sys.stderr)
+            return 2
+        for path in files:
+            body = json.loads(path.read_text())
+            if set(body) == {"error"}:
+                errors[path.stem] = body["error"]
+            else:
+                checks.append(check_run(path.stem, AgentRun.model_validate(body)))
+    print(render_checks(checks, errors), end="")
+    return 0
+
+
 def _serve_oracle(args: argparse.Namespace) -> int:
     import uvicorn
 
@@ -695,7 +717,13 @@ def main(argv: list[str] | None = None, *, connect: Connect = connect_http) -> i
     calibration.add_argument("--runs-dir", type=Path)
     calibration.add_argument("--out-dir", type=Path, help="default packages/evals/reports/rubric")
 
+    inspect = commands.add_parser("inspect", help="thinking, caching and turns, per stored run")
+    inspect.add_argument("refs", nargs="+", help="report ids, or run files from sra ask --json")
+    inspect.add_argument("--runs-dir", type=Path)
+
     args = parser.parse_args(argv)
+    if args.command == "inspect":
+        return _inspect(args)
     if args.command == "grade":
         return _grade(args)
     if args.command == "calibrate":
