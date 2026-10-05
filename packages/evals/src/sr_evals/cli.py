@@ -37,8 +37,10 @@ from sr_evals.dataset import (
     world_for,
     write_dataset,
 )
+from sr_evals.experiments import Config, render_experiments, run_experiments
 from sr_evals.oracle import OracleModel
 from sr_evals.report import REPORTS_DIR, EvalReport, compare, find_previous, summarise, write_report
+from sr_evals.retrieval import load_queries
 from sr_evals.runner import CaseResult, run_cases
 from sr_evals.scorers import WorldIndex, score_case
 from sr_mcp.paths import project_root
@@ -230,6 +232,33 @@ def _run(args: argparse.Namespace, connect: Connect) -> int:
     return 0
 
 
+def _retrieval(args: argparse.Namespace) -> int:
+    configs = [
+        Config(embedder=e.strip(), chunk_chars=size)
+        for e in args.embedders.split(",")
+        for size in (int(c) for c in args.chunk_sizes.split(","))
+    ]
+    started = time.perf_counter()
+    rows = run_experiments(load_queries(), configs)
+    table = render_experiments(rows)
+    now = datetime.now(UTC)
+    args.out_dir.mkdir(parents=True, exist_ok=True)
+    stem = args.out_dir / f"{now:%Y%m%d-%H%M%S}-retrieval"
+    stem.with_suffix(".json").write_text(
+        json.dumps([r.model_dump(mode="json") for r in rows], indent=2) + "\n"
+    )
+    header = (
+        f"# Retrieval experiments {now:%Y-%m-%d %H:%M} UTC\n\n"
+        f"40 labelled queries (`retrieval_v1.json`), default world, commit `{_git_commit()}`, "
+        f"{time.perf_counter() - started:.0f} s. The code filter uses each query's labelled code "
+        "(an upper bound).\n\n"
+    )
+    stem.with_suffix(".md").write_text(header + table)
+    print(table)
+    print(f"report: {stem.with_suffix('.md')}")
+    return 0
+
+
 def main(argv: list[str] | None = None, *, connect: Connect = connect_http) -> int:
     parser = argparse.ArgumentParser(prog="sr-evals", description="SR-Agent evaluation.")
     commands = parser.add_subparsers(dest="command", required=True)
@@ -253,7 +282,16 @@ def main(argv: list[str] | None = None, *, connect: Connect = connect_http) -> i
     run.add_argument("--reports-dir", type=Path)
     run.add_argument("--runs-dir", type=Path)
 
+    retrieval = commands.add_parser(
+        "retrieval", help="retrieval experiments on scratch databases (T4.4)"
+    )
+    retrieval.add_argument("--embedders", default="bge-small,minilm")
+    retrieval.add_argument("--chunk-sizes", default="2000,400")
+    retrieval.add_argument("--out-dir", type=Path, default=REPORTS_DIR / "retrieval")
+
     args = parser.parse_args(argv)
     if args.command == "build":
         return _build(args)
+    if args.command == "retrieval":
+        return _retrieval(args)
     return _run(args, connect)

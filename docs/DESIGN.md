@@ -578,6 +578,29 @@ Learning experiments, each recorded in the M4 learning note with numbers:
 - Two embedders (local versus hosted).
 - With and without an `error_code` filter.
 
+**Experiment results (T4.4)**
+
+`uv run sr-evals retrieval` scores every configuration on a scratch database (about 35 s for all of them). Reports are in `packages/evals/reports/retrieval/`. "Code filter" uses each query's labelled code, so it is an upper bound.
+
+| Embedder | Chunk size | Mode | recall@5 | MRR | runbook@5 |
+| --- | --- | --- | --- | --- | --- |
+| bge-small | 2,000 | **hybrid** | **0.900** | **0.875** | **0.725** |
+| bge-small | 2,000 | vector | 0.900 | 0.875 | 0.425 |
+| bge-small | 2,000 | keyword | 0.900 | 0.772 | 0.825 |
+| bge-small | 400 | hybrid | 0.900 | 0.858 | 0.600 |
+| minilm | 2,000 | hybrid | 0.900 | 0.833 | 0.675 |
+| minilm | 2,000 | vector | 0.800 | 0.783 | 0.375 |
+| bge-small | 2,000 | hybrid, code filter | 1.000 | 1.000 | 0.825 |
+
+- **Hybrid has the best MRR.**
+  - Vector search finds tickets well, because they are written the way CS asks, but rarely runbooks.
+  - Keyword search finds runbooks, which use the technical terms, but ranks less well.
+- **Smaller runbook chunks (400 characters) lower runbook@5:** a runbook split into sections is diluted.
+- **`bge-small` beats `minilm`** on vector recall (0.900 against 0.800).
+- **The code filter reaches 1.000 only with the right code.** On a wrong guess it would cement the mistake, so the agent is not told to filter.
+- **Defaults kept:** `bge-small`, 2,000-character chunks, hybrid. A hosted embedder (Voyage AI) needs its own key and budget, and was not compared.
+- **The agent eval with and without RAG:** `sr-evals run` against `sr-evals run --no-rag`.
+
 Acceptance:
 - A labelled set of 40 queries reaches recall@5 of at least 0.8, with MRR reported.
 - Running the agent eval with and without `search_knowledge` shows the effect of RAG on accuracy.

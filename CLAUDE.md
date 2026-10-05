@@ -21,6 +21,7 @@ uv run sim case F00_NO_FAULT --distractor recovered_pms_auth  # a case with a di
 uv run sr-evals build          # rebuild the frozen eval dataset (packages/evals/datasets/v1.json)
 uv run sr-evals run --cases smoke   # eval: 12 cases (or all, or ids); needs make seed, make mcp-http and a key
 uv run sr-evals run --dry-run       # the same pipeline with an oracle model: free, must score 100%
+uv run sr-evals retrieval           # retrieval experiments (embedders x chunk sizes x modes) on scratch DBs
 make test-integration          # tests marked integration, against the local Postgres
 uv run pytest -m live          # tests that call a real model API (skipped by default)
 ```
