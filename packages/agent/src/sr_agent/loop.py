@@ -43,6 +43,7 @@ from sr_agent.model import (
     TokenUsage,
     ToolUse,
 )
+from sr_agent.pricing import cost_usd
 from sr_agent.prompts import PROMPT_VERSION, build_system_prompt
 from sr_agent.safety import clinical_advice, mask_identifiers, scrub_question
 from sr_agent.toolbox import Toolbox
@@ -88,6 +89,11 @@ class ToolCallRecord(BaseModel):
     duration_ms: float
 
 
+class TurnUsage(BaseModel):
+    model: str  # the model that served the turn
+    usage: TokenUsage
+
+
 class AgentRun(BaseModel):
     run_id: str
     question: str
@@ -104,6 +110,7 @@ class AgentRun(BaseModel):
     safety_flags: list[str]  # clinical advice still present after the repair turn
     tool_calls: list[ToolCallRecord]
     usage: TokenUsage
+    turn_usage: list[TurnUsage]
     duration_ms: float
     transcript: list[Message]
 
@@ -111,6 +118,15 @@ class AgentRun(BaseModel):
     @property
     def incomplete(self) -> bool:
         return self.outcome != "answered"
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def cost_usd(self) -> float | None:
+        """Each turn priced by the model that served it; None if any model has no price."""
+        costs = [cost_usd(t.model, t.usage) for t in self.turn_usage]
+        if any(c is None for c in costs):
+            return None
+        return round(sum(c for c in costs if c is not None), 6)
 
 
 @dataclass(frozen=True)
@@ -241,6 +257,7 @@ async def run_agent(
     question, question_redactions = scrub_question(question)
     messages: list[Message] = [{"role": "user", "content": question}]
     usage = TokenUsage()
+    turn_usage: list[TurnUsage] = []
     calls: list[ToolCallRecord] = []
     served_by: list[str] = []
     seen: set[str] = set()  # evidence ids that appeared in successful tool results
@@ -270,6 +287,7 @@ async def run_agent(
             safety_flags=flags,
             tool_calls=calls,
             usage=usage,
+            turn_usage=turn_usage,
             duration_ms=round((clock() - started) * 1000, 1),
             transcript=messages,
         )
@@ -297,6 +315,7 @@ async def run_agent(
         except TimeoutError:
             return None
         usage += reply.usage
+        turn_usage.append(TurnUsage(model=reply.model, usage=reply.usage))
         served_by.append(reply.model)
         messages.append({"role": "assistant", "content": reply.content})
         duration = round((time.perf_counter() - began) * 1000, 1)

@@ -448,3 +448,29 @@ def test_identifiers_in_the_answer_are_masked_in_the_result() -> None:
     assert result.diagnosis is not None
     assert result.diagnosis.summary == "Patient [REDACTED] was not affected."
     assert result.output_redactions == 1
+
+
+def test_each_turn_is_priced_by_the_model_that_served_it() -> None:
+    model = FakeModel(
+        reply(
+            tool_use("get_referral"),
+            usage=TokenUsage(input_tokens=1_000_000),
+            model="claude-opus-5-5",
+        ),
+        reply(
+            text(diagnosis_json()),
+            usage=TokenUsage(input_tokens=1_000_000),
+            model="claude-sonnet-5-5",  # a fallback served the second turn
+        ),
+    )
+    result = run(model, toolbox())
+
+    assert [(t.model, t.usage.input_tokens) for t in result.turn_usage] == [
+        ("claude-opus-5-5", 1_000_000),
+        ("claude-sonnet-5-5", 1_000_000),
+    ]
+    assert result.cost_usd == pytest.approx(4.0 + 2.0)
+
+
+def test_an_unpriced_model_has_no_cost() -> None:
+    assert run(FakeModel(answer()), toolbox()).cost_usd is None

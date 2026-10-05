@@ -95,6 +95,7 @@ def a_run(
             for _ in range(tool_calls)
         ],
         "usage": TokenUsage(input_tokens=1000, output_tokens=200, cache_read_input_tokens=3000),
+        "turn_usage": [],
         "duration_ms": 12_000.0,
         "transcript": [],
     }

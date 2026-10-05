@@ -1,4 +1,4 @@
-.PHONY: install check lint typecheck test fmt db-up db-down db-reset migrate db-roles seed ingest mcp mcp-http test-integration
+.PHONY: install check lint typecheck test fmt db-up db-down db-reset migrate db-roles db-auditor seed ingest mcp mcp-http test-integration
 
 install: ## Install all workspace packages and dev tools
 	uv sync
@@ -40,6 +40,9 @@ mcp: ## Run the MCP server over stdio (what Claude Desktop and Claude Code launc
 
 mcp-http: ## Run the MCP server over HTTP on 127.0.0.1:8765 (bearer token: MCP_HTTP_TOKEN)
 	uv run sr-mcp --transport http
+
+db-auditor: ## Create the agent's audit login role from SRA_AUDIT_DATABASE_URL
+	uv run sr-db create-auditor
 
 seed: ## Replace simulator data with the default generated world (DESIGN.md 3.6)
 	uv run sim seed

@@ -1,4 +1,4 @@
-"""`sr-db` command line: apply migrations and show their status."""
+"""`sr-db` command line: apply migrations, show their status, and create login roles."""
 
 import argparse
 import sys
@@ -8,7 +8,7 @@ import psycopg
 from psycopg import sql
 
 from sr_db.migrate import MIGRATIONS_DIR, MigrationError, applied_migrations, discover, migrate
-from sr_db.settings import DatabaseSettings, ReaderSettings
+from sr_db.settings import AuditorSettings, DatabaseSettings, ReaderSettings
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -21,11 +21,18 @@ def main(argv: list[str] | None = None) -> int:
         help="create or update the MCP server's login role (from MCP_DATABASE_URL) as a member "
         "of the read-only sr_reader role",
     )
+    commands.add_parser(
+        "create-auditor",
+        help="create or update the agent's audit login (from SRA_AUDIT_DATABASE_URL) as a member "
+        "of the sr_auditor role",
+    )
     args = parser.parse_args(argv)
 
     url = DatabaseSettings().url
     if args.command == "create-reader":
-        return _create_reader(url)
+        return _create_login(url, ReaderSettings().url, "sr_reader", "MCP_DATABASE_URL")
+    if args.command == "create-auditor":
+        return _create_login(url, AuditorSettings().url, "sr_auditor", "SRA_AUDIT_DATABASE_URL")
     try:
         with psycopg.connect(url, autocommit=True) as conn:
             if args.command == "migrate":
@@ -45,17 +52,16 @@ def main(argv: list[str] | None = None) -> int:
     return 0
 
 
-def _create_reader(admin_url: str) -> int:
-    reader = urlsplit(ReaderSettings().url)
-    user, password = unquote(reader.username or ""), unquote(reader.password or "")
+def _create_login(admin_url: str, login_url: str, group: str, variable: str) -> int:
+    """Create or update the login in `login_url` as a member of the group role `group`."""
+    login = urlsplit(login_url)
+    user, password = unquote(login.username or ""), unquote(login.password or "")
     if not user or not password:
-        print("sr-db: MCP_DATABASE_URL must include a user name and password", file=sys.stderr)
+        print(f"sr-db: {variable} must include a user name and password", file=sys.stderr)
         return 1
     with psycopg.connect(admin_url, autocommit=True) as conn:
-        if conn.execute("SELECT 1 FROM pg_roles WHERE rolname = 'sr_reader'").fetchone() is None:
-            print(
-                "sr-db: role sr_reader does not exist; run `sr-db migrate` first", file=sys.stderr
-            )
+        if conn.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (group,)).fetchone() is None:
+            print(f"sr-db: role {group} does not exist; run `sr-db migrate` first", file=sys.stderr)
             return 1
         exists = conn.execute("SELECT 1 FROM pg_roles WHERE rolname = %s", (user,)).fetchone()
         verb = "ALTER" if exists else "CREATE"
@@ -64,6 +70,6 @@ def _create_reader(admin_url: str) -> int:
                 sql.SQL(verb), sql.Identifier(user), sql.Literal(password)
             )
         )
-        conn.execute(sql.SQL("GRANT sr_reader TO {}").format(sql.Identifier(user)))
-    print(f"{'updated' if exists else 'created'} login role {user} (member of sr_reader)")
+        conn.execute(sql.SQL("GRANT {} TO {}").format(sql.Identifier(group), sql.Identifier(user)))
+    print(f"{'updated' if exists else 'created'} login role {user} (member of {group})")
     return 0
