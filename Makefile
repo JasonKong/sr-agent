@@ -1,4 +1,4 @@
-.PHONY: install check lint typecheck test fmt db-up db-down db-reset migrate db-roles db-auditor seed ingest mcp mcp-http api web-install web-check web-dev test-integration
+.PHONY: install check lint typecheck test fmt db-up db-down db-reset migrate db-roles db-auditor seed ingest mcp mcp-http api web-install web-check web-dev web-e2e test-integration
 
 install: ## Install all workspace packages and dev tools
 	uv sync
@@ -64,3 +64,6 @@ web-check: ## The web console's typecheck, lint, format check and unit tests
 
 web-dev: ## The web console on http://localhost:5173 (proxies /api to make api)
 	pnpm --dir packages/web dev
+
+web-e2e: ## Playwright end-to-end tests with an oracle model (needs make seed; E2E_API=live for the real model)
+	pnpm --dir packages/web e2e

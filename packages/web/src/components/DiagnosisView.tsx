@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import type { DiagnosisResponse } from "../api/client";
 import { CODE_TITLES, OUTCOME_LABELS } from "../labels";
@@ -22,7 +22,13 @@ function CopyButton({ text, label }: { text: string; label: string }) {
   );
 }
 
-export function DiagnosisView({ result }: { result: DiagnosisResponse }) {
+export function DiagnosisView({
+  result,
+  children,
+}: {
+  result: DiagnosisResponse;
+  children?: ReactNode;
+}) {
   const d = result.diagnosis;
   const why = OUTCOME_LABELS[result.outcome] ?? result.outcome;
   return (
@@ -91,6 +97,7 @@ export function DiagnosisView({ result }: { result: DiagnosisResponse }) {
           )}
         </>
       )}
+      {children}
       <p className="text-xs text-slate-500">
         {result.tool_calls.length} tool calls · {(result.duration_ms / 1000).toFixed(1)} s
         {result.cost_usd !== null && ` · $${result.cost_usd.toFixed(3)}`} · {result.model}

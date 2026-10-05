@@ -860,6 +860,18 @@ Purpose: a simple tool a non-technical CS member can use without training.
   - banners for an incomplete answer, no answer, or removed clinical advice.
 - **Trying the console without a key.** `uv run sr-evals serve-oracle` serves the real agent API through the real MCP server and database, with an oracle that reads the referral id from the question and answers from the answer key. It is for trying the console and for end-to-end tests at no cost; it is never a model.
 
+**Feedback, history and end-to-end tests (T6.2)**
+
+- **Feedback:** 👍 / 👎 under every answer. 👎 asks for the right root cause (the codes in plain words, or "I'm not sure") and an optional comment, sent to `POST /diagnoses/{id}/feedback`.
+- **History:** the user's recent diagnoses beside the answer, refreshed after each one; opening one fetches it from the audit.
+- **Playwright** (`make web-e2e`, `packages/web/e2e/`) starts the real MCP server, the agent API and the console, on desktop and phone-width projects.
+  - **By default the API is `sr-evals serve-oracle`,** so the tests need no key and know the right answer. `E2E_API=live` uses the real model (`sra serve`).
+  - **The tests:**
+    - a CS member asks about GR-11854 and sees "Clinic PMS authorisation failed" (F07), with its evidence;
+    - feedback is accepted, and the diagnosis appears in the history and opens after a reload;
+    - axe-core finds no WCAG 2 A or AA violation on the ask or answer screen.
+  - **In CI,** the `e2e` job runs them against a seeded Postgres with no secrets.
+
 Acceptance: works on desktop and mobile widths; passes basic accessibility checks; a Playwright test asks about a seeded case and sees the correct root cause.
 
 ## 8. Security, privacy and responsible AI

@@ -29,7 +29,7 @@ make test-integration          # tests marked integration, against the local Pos
 uv run pytest -m live          # tests that call a real model API (skipped by default)
 ```
 
-CI (`.github/workflows/ci.yml`) runs `make check` and, against a Postgres service container, `make migrate` and `make test-integration` on every pull request. `.github/workflows/eval.yml` runs the eval smoke set on a manual trigger or a push to `main` (never on pull requests), using the `ANTHROPIC_API_KEY` secret. Actions are pinned to commit SHAs; keep the `# vX.Y.Z` comment next to each SHA. Run `actionlint` after editing workflows.
+CI (`.github/workflows/ci.yml`) runs `make check`, the web console's check, build and Playwright tests (with the oracle), and, against a Postgres service container, `make migrate` and `make test-integration` on every pull request. `.github/workflows/eval.yml` runs the eval smoke set on a manual trigger or a push to `main` (never on pull requests), using the `ANTHROPIC_API_KEY` secret. Actions are pinned to commit SHAs; keep the `# vX.Y.Z` comment next to each SHA. Run `actionlint` after editing workflows.
 
 ## Layout
 
@@ -42,7 +42,7 @@ CI (`.github/workflows/ci.yml`) runs `make check` and, against a Postgres servic
   - `evals` → `sr_evals`
 - Tests live in `packages/<dir>/tests/`. Test file names must be unique across the repo: the tests directories have no `__init__.py`, and mypy and pytest import by file name.
 - Shared pytest fixtures live in `sr_db.testing` (for example `migrated`, a throwaway migrated database), loaded by the root `conftest.py`. Do not add another `conftest.py`.
-- `packages/web` (TypeScript, pnpm; not in the uv workspace) is the CS console: `make web-install`, `make web-check`, `make web-dev`. Regenerate its API types with `pnpm --dir packages/web api:types` after changing the agent API. `infra/` (AWS CDK) arrives only in the optional M7.
+- `packages/web` (TypeScript, pnpm; not in the uv workspace) is the CS console: `make web-install`, `make web-check`, `make web-dev`, `make web-e2e` (Playwright with an oracle model; needs `make seed`). Regenerate its API types with `pnpm --dir packages/web api:types` after changing the agent API. `infra/` (AWS CDK) arrives only in the optional M7.
 
 ## Working on a task
 
