@@ -554,6 +554,23 @@ Purpose: let the agent find how similar problems were solved before.
 - **The agent's prompt** gains a knowledge step only when both tools are present, so `sr-evals run --no-rag` runs the M3 prompt unchanged.
 - **Reachability of tickets.** The reachability test now covers ticket evidence. A case's expected tickets are every ticket about its clinic with a clinic-side cause, more than `top_k` can return, so at least one must come back when the clinic is searched for by name.
 
+**Retrieval evaluation (T4.3)**
+
+- **40 queries:** `packages/evals/datasets/retrieval_v1.json`, hand-written in CS style rather than copied from the ticket phrase banks. Each is labelled with the code whose knowledge should come back: 3 for each failure code, and 7 for F00, including the "recovered" traps.
+- **What counts as relevant:** a hit of the labelled code, from a ticket or a runbook. Each code has about 30 relevant tickets, so the measures are:
+  - **recall@5:** the share of queries with a relevant hit in the top five;
+  - **MRR:** the mean of 1/rank of the first relevant hit;
+  - **runbook@5:** stricter, the code's own runbook in the top five.
+- **Baseline:** default world, `bge-small`, hybrid search, chunks of 2,000 characters. The integration test asserts the targets.
+
+  | Measure | Value |
+  | --- | --- |
+  | recall@5 | 0.900 |
+  | MRR | 0.875 |
+  | runbook@5 | 0.725 |
+
+- **The four misses are all F00 "it recovered" queries.** They retrieve the failure that looks the same (F07 after a 401, F04 after a failed hand-off, F10 for "not opened yet"), or a general guide with no code. Retrieval reproduces the distractor trap: text about a 401 sits close to text about expired tokens, whether or not it recovered.
+
 Learning experiments, each recorded in the M4 learning note with numbers:
 
 - Vector-only versus keyword-only versus hybrid.

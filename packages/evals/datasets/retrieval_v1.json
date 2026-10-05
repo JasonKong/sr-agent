@@ -1,0 +1,206 @@
+{
+  "version": "v1",
+  "note": "Hand-written CS-style queries, each labelled with the root-cause code whose knowledge should come back. Not copied from the ticket phrase banks.",
+  "queries": [
+    {
+      "query_id": "q01",
+      "code": "F01_MISSING_REQUIRED_FIELD",
+      "text": "GP can't submit the referral, it says a required field like date of birth is missing"
+    },
+    {
+      "query_id": "q02",
+      "code": "F01_MISSING_REQUIRED_FIELD",
+      "text": "referral failed to generate because the patient details are incomplete"
+    },
+    {
+      "query_id": "q03",
+      "code": "F01_MISSING_REQUIRED_FIELD",
+      "text": "validation error when the GP submits, the DOB is invalid"
+    },
+    {
+      "query_id": "q04",
+      "code": "F02_PDF_TOO_LARGE",
+      "text": "the referral won't generate, the attachments are too big"
+    },
+    {
+      "query_id": "q05",
+      "code": "F02_PDF_TOO_LARGE",
+      "text": "PDF over the size limit even after compression"
+    },
+    {
+      "query_id": "q06",
+      "code": "F02_PDF_TOO_LARGE",
+      "text": "GP attached a lot of scanned letters and now generation fails"
+    },
+    {
+      "query_id": "q07",
+      "code": "F03_SOURCE_DOC_SKIPPED",
+      "text": "specialist says pages are missing from the referral"
+    },
+    {
+      "query_id": "q08",
+      "code": "F03_SOURCE_DOC_SKIPPED",
+      "text": "one of the attached documents didn't come through but the rest was fine"
+    },
+    {
+      "query_id": "q09",
+      "code": "F03_SOURCE_DOC_SKIPPED",
+      "text": "a document failed to download from the GP system and was quietly left out"
+    },
+    {
+      "query_id": "q10",
+      "code": "F04_HUB_UNAVAILABLE",
+      "text": "referral stuck on processing, it never reached the hub"
+    },
+    {
+      "query_id": "q11",
+      "code": "F04_HUB_UNAVAILABLE",
+      "text": "hand-off to the hub keeps failing with server errors"
+    },
+    {
+      "query_id": "q12",
+      "code": "F04_HUB_UNAVAILABLE",
+      "text": "the automatic resend failed too, the hub returned 503"
+    },
+    {
+      "query_id": "q13",
+      "code": "F05_ATTACHMENT_FETCH_FAILED",
+      "text": "hub got the referral but couldn't fetch the PDF, the signed link had expired"
+    },
+    {
+      "query_id": "q14",
+      "code": "F05_ATTACHMENT_FETCH_FAILED",
+      "text": "attachment fetch failed so the referral was never accepted"
+    },
+    {
+      "query_id": "q15",
+      "code": "F05_ATTACHMENT_FETCH_FAILED",
+      "text": "specialist never got it, the hub shows no deliveries and the file download gave 404"
+    },
+    {
+      "query_id": "q16",
+      "code": "F06_MANUAL_ROUTING",
+      "text": "clinic doesn't have an active account so nothing was sent electronically"
+    },
+    {
+      "query_id": "q17",
+      "code": "F06_MANUAL_ROUTING",
+      "text": "referral routed as manual, the GP needs to send it another way"
+    },
+    {
+      "query_id": "q18",
+      "code": "F06_MANUAL_ROUTING",
+      "text": "no deliveries at all to this specialist, they aren't set up on the platform"
+    },
+    {
+      "query_id": "q19",
+      "code": "F07_CLINIC_PMS_AUTH_FAILED",
+      "text": "specialist says it never arrived in their practice system, the integration token expired"
+    },
+    {
+      "query_id": "q20",
+      "code": "F07_CLINIC_PMS_AUTH_FAILED",
+      "text": "clinic PMS push failing with auth errors since yesterday and no attempts are logged"
+    },
+    {
+      "query_id": "q21",
+      "code": "F07_CLINIC_PMS_AUTH_FAILED",
+      "text": "several referrals to the same clinic missing from their PMS after its authorisation lapsed"
+    },
+    {
+      "query_id": "q22",
+      "code": "F08_CLINIC_PMS_TIMEOUT",
+      "text": "clinic system isn't responding, deliveries keep timing out and retrying"
+    },
+    {
+      "query_id": "q23",
+      "code": "F08_CLINIC_PMS_TIMEOUT",
+      "text": "push to the specialist's PMS keeps timing out"
+    },
+    {
+      "query_id": "q24",
+      "code": "F08_CLINIC_PMS_TIMEOUT",
+      "text": "endpoint degraded at the clinic, the referral is still pending after retries"
+    },
+    {
+      "query_id": "q25",
+      "code": "F09_CLINIC_IMPORT_REJECTED",
+      "text": "it arrived but didn't go into the patient's file, the import was rejected"
+    },
+    {
+      "query_id": "q26",
+      "code": "F09_CLINIC_IMPORT_REJECTED",
+      "text": "clinic PMS reports a patient mismatch when importing the referral"
+    },
+    {
+      "query_id": "q27",
+      "code": "F09_CLINIC_IMPORT_REJECTED",
+      "text": "422 patient incomplete error on the clinic import"
+    },
+    {
+      "query_id": "q28",
+      "code": "F10_DELIVERED_NOT_ACTIONED",
+      "text": "delivered a week ago but the specialist says they never saw it"
+    },
+    {
+      "query_id": "q29",
+      "code": "F10_DELIVERED_NOT_ACTIONED",
+      "text": "need proof of delivery, nobody at the clinic has opened the referral"
+    },
+    {
+      "query_id": "q30",
+      "code": "F10_DELIVERED_NOT_ACTIONED",
+      "text": "every channel succeeded yet no one has acknowledged it in ten days"
+    },
+    {
+      "query_id": "q31",
+      "code": "F11_RESPONSE_NOT_FILED",
+      "text": "specialist replied but the GP never got the response"
+    },
+    {
+      "query_id": "q32",
+      "code": "F11_RESPONSE_NOT_FILED",
+      "text": "the acknowledgement didn't file into the GP inbox"
+    },
+    {
+      "query_id": "q33",
+      "code": "F11_RESPONSE_NOT_FILED",
+      "text": "a decline came back from the clinic but filing it into the practice system failed"
+    },
+    {
+      "query_id": "q34",
+      "code": "F00_NO_FAULT",
+      "text": "GP wants to know if the specialist received it, everything looks normal"
+    },
+    {
+      "query_id": "q35",
+      "code": "F00_NO_FAULT",
+      "text": "delivered and acknowledged, just confirming nothing is wrong"
+    },
+    {
+      "query_id": "q36",
+      "code": "F00_NO_FAULT",
+      "text": "the first push got a 401 but the token refreshed and the retry worked"
+    },
+    {
+      "query_id": "q37",
+      "code": "F00_NO_FAULT",
+      "text": "the first hand-off failed but the automatic resend went through later"
+    },
+    {
+      "query_id": "q38",
+      "code": "F00_NO_FAULT",
+      "text": "sent this morning and not opened yet, is that a problem"
+    },
+    {
+      "query_id": "q39",
+      "code": "F00_NO_FAULT",
+      "text": "GP says there was an error earlier but it seems to have recovered"
+    },
+    {
+      "query_id": "q40",
+      "code": "F00_NO_FAULT",
+      "text": "customer asking for a status check, no errors reported"
+    }
+  ]
+}
