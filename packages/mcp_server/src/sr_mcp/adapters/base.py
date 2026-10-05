@@ -11,6 +11,7 @@ from typing import Literal, Protocol
 
 from pydantic import BaseModel, ConfigDict
 
+from sr_db.domain import KnowledgeSource
 from sr_mcp.masking import FieldStatus
 
 
@@ -270,7 +271,7 @@ class RunbookPage(RunbookSummary):
 
 
 class KnowledgeHit(_Record):
-    source_type: Literal["ticket", "runbook"]
+    source_type: KnowledgeSource
     source_id: str
     title: str
     text: str

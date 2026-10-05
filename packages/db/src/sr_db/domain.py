@@ -199,6 +199,13 @@ COMPOSER_EVENT_LEG: dict[str, str] = {
 }
 
 
+class KnowledgeSource(StrEnum):
+    """Where a knowledge chunk comes from (DESIGN.md section 7.3)."""
+
+    TICKET = "TICKET"
+    RUNBOOK = "RUNBOOK"
+
+
 # --- Record ids ---------------------------------------------------------------------------
 
 # Every id carries its table's prefix, so a bare id in evidence or a log line says what it

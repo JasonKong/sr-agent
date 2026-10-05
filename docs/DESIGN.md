@@ -166,7 +166,7 @@ Schema rules:
 | --- | --- | --- |
 | `support_ticket` (`tkt_`) | referral\_ref, clinic\_ref, title, description, resolution, root\_cause\_code, created\_at, resolved\_at | Written in varied CS styles; source for RAG and for eval wording |
 | `runbook` (`rb_`) | slug, error\_code, title, body\_markdown, updated\_at | One per failure code, plus general guides (`error_code` NULL) |
-| `knowledge_chunk` | source\_type, source\_id, error\_code, text, metadata, embedding, tsv | Added in T4.1, once the embedding model (and so the vector size) is chosen |
+| `knowledge_chunk` (`<source id>#<n>`, such as `tkt_42#0`) | source\_type (TICKET, RUNBOOK), source\_id, chunk\_no, error\_code, title, text, metadata, content\_hash, embedder, embedding `vector(384)`, tsv, ingested\_at | Migration 0006 (T4.1). Text is masked before it is stored or embedded; HNSW index on the embedding, GIN on `tsv` |
 
 **Logs.** One JSON object per line, one file per service (`var/logs/<service>.jsonl`): `composer-web`, `composer-worker`, `hub-api`, `hub-worker`.
 
@@ -517,6 +517,25 @@ Purpose: let the agent find how similar problems were solved before.
 - Storage: `embedding vector(n)` with an HNSW index, and `tsv tsvector` with a GIN index.
 - Query: hybrid retrieval. Vector similarity and full-text rank are combined with reciprocal rank fusion, optionally filtered by `error_code`, and the top `top_k` are returned with scores and source ids.
 - Patient data is masked before embedding, so it never reaches the vector store. Tickets contain synthetic NHIs (`SIM` plus four digits) and dates of birth (`DD-MM-YYYY`) but never names, so pattern-based masking is sufficient and testable.
+
+**Ingestion decisions (T4.1)**
+
+- **Embedder interface** (`sr_mcp.knowledge.embedder`):
+  - **Default:** `bge-small` (`BAAI/bge-small-en-v1.5`) through fastembed, downloaded once (about 64 MB) to `var/models/` and run offline on the CPU. It embeds about 600 chunks a second on a laptop.
+  - **Second local model,** for T4.4: `minilm` (`all-MiniLM-L6-v2`).
+  - **For tests:** `hash`, a deterministic hashing embedder. It needs no model.
+  - **Vector size:** all three give 384 numbers, the size of `knowledge_chunk.embedding`. A hosted embedder with another size would need its own column or table.
+- **Chunking** (`sr_mcp.knowledge.chunking`):
+  - **Tickets:** one chunk each, the description then the resolution.
+  - **Runbooks:** split at `##` sections.
+    - Whole sections merge with their neighbours while they fit in the chunk size (default 2,000 characters, about 500 tokens). With today's runbooks (about 1,300 characters each), that is one chunk per runbook.
+    - A longer section is split at blank lines. Its pieces stand alone and keep the `###` heading they sit under.
+  - **Headings:** each chunk records the headings it covers.
+- **Masking comes before chunking:** NHIs and day-first dates are replaced before any text is embedded or stored. On the default seed, 51 tickets carry a synthetic NHI and no chunk does.
+- **`uv run sr-ingest`** (`make ingest`) runs as the database owner.
+  - **Hash per chunk:** it covers the text, metadata and embedder name, so a re-run embeds only what changed, and a new embedder or chunk size re-embeds everything.
+  - **Clean-up:** chunks whose source has gone are deleted.
+  - **On the default seed:** 394 chunks, about 13 s once the model is downloaded; a second run takes 0.1 s.
 
 Learning experiments, each recorded in the M4 learning note with numbers:
 

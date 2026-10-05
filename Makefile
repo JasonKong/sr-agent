@@ -1,4 +1,4 @@
-.PHONY: install check lint typecheck test fmt db-up db-down db-reset migrate db-roles seed mcp mcp-http test-integration
+.PHONY: install check lint typecheck test fmt db-up db-down db-reset migrate db-roles seed ingest mcp mcp-http test-integration
 
 install: ## Install all workspace packages and dev tools
 	uv sync
@@ -43,6 +43,9 @@ mcp-http: ## Run the MCP server over HTTP on 127.0.0.1:8765 (bearer token: MCP_H
 
 seed: ## Replace simulator data with the default generated world (DESIGN.md 3.6)
 	uv run sim seed
+
+ingest: ## Chunk, mask and embed tickets and runbooks for retrieval (after make seed)
+	uv run sr-ingest
 
 test-integration: ## Tests that need the local Postgres (run make db-up first)
 	uv run pytest -m integration
