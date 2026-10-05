@@ -3,10 +3,13 @@
 `v1` holds 75 cases from the default seeded world: 5 clean cases for each of the 12 codes,
 and 15 cases carrying a distractor. Each question names its referral one of three ways, as
 CS would hear it: the Composer id, the Hub id, or only the practice, GP, clinic and day.
+`v1` is the development set: the agent is tuned against it. `holdout_v1` is built the same
+way from another seed (43), with its own selection and wording, and is the test set: it is
+run once, at the end, on the configuration chosen on `v1` (section 7.5).
 
-The dataset is frozen to `packages/evals/datasets/v1.json`, so runs are comparable. A test
-rebuilds it from the default world: if the simulator changes, the test fails and the
-dataset is rebuilt on purpose (`sr-evals build`), never silently.
+Each dataset is frozen to `packages/evals/datasets/<version>.json`, so runs are comparable.
+A test rebuilds each from its world: if the simulator changes, the test fails and the
+dataset is rebuilt on purpose (`sr-evals build --set <version>`), never silently.
 
 Selection is deterministic (its own seeded random stream). Cases of one code are spread
 over different clinics where possible: clinic-level faults cluster on each clinic's most
@@ -33,6 +36,10 @@ from sr_simulator.scenario import load_distractors, load_scenarios
 
 DATASET_DIR = Path(__file__).resolve().parents[2] / "datasets"
 DATASET_V1 = DATASET_DIR / "v1.json"
+HOLDOUT_SEED = 43
+DATASETS: dict[str, Path] = {"v1": DATASET_V1, "holdout_v1": DATASET_DIR / "holdout_v1.json"}
+# The world each dataset is built from: the default world, or the holdout seed.
+DATASET_SEEDS: dict[str, int] = {"v1": SimConfig().seed, "holdout_v1": HOLDOUT_SEED}
 
 PER_CODE = 5
 DISTRACTOR_PLAN: dict[str, int] = {

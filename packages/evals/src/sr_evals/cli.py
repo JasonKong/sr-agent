@@ -1,9 +1,13 @@
-"""`sr-evals`: build the frozen dataset, and run the agent against it (DESIGN.md 7.5).
+"""`sr-evals`: build the frozen datasets, run the agent against them, compare runs (DESIGN.md 7.5).
 
-`sr-evals run` needs the default world seeded (`make seed`) and the MCP server running over
-HTTP (`make mcp-http`). It writes a JSON and a Markdown report, compared with the previous
-report for the same cases, and each case's full run (transcript included) under `var/evals/`.
-`--dry-run` uses an oracle that reads the answer key: the whole pipeline at no cost.
+`sr-evals run` needs the dataset's world seeded (`make seed`) and the MCP server running
+over HTTP (`make mcp-http`). It writes a JSON and a Markdown report, compared with the
+previous report for the same cases (or `--compare-to` a named one), and each case's full
+run (transcript included) under `var/evals/`. `--dry-run` uses an oracle that reads the
+answer key: the whole pipeline at no cost.
+
+`sr-evals compare A B` sets two reports side by side with the sign-test verdict, and
+`sr-evals rescore R` scores a run's stored answers again, with no model and no database.
 """
 
 from __future__ import annotations
@@ -17,6 +21,7 @@ import time
 from collections import Counter
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import get_args
@@ -24,7 +29,7 @@ from typing import get_args
 from sr_agent.anthropic_model import model_from_settings
 from sr_agent.api import create_app
 from sr_agent.audit import MemoryAudit
-from sr_agent.loop import Limits
+from sr_agent.loop import AgentRun, Limits
 from sr_agent.model import Effort, ModelClient, ModelUnavailable
 from sr_agent.prompts import PROMPT_VERSIONS
 from sr_agent.settings import AgentSettings
@@ -38,7 +43,9 @@ from sr_agent.toolbox import (
 )
 from sr_db.domain import FailureCode
 from sr_evals.dataset import (
+    DATASET_SEEDS,
     DATASET_V1,
+    DATASETS,
     Dataset,
     EvalCase,
     build_dataset,
@@ -48,7 +55,15 @@ from sr_evals.dataset import (
 )
 from sr_evals.experiments import Config, render_experiments, run_experiments
 from sr_evals.oracle import OracleModel, QuestionOracle
-from sr_evals.report import REPORTS_DIR, EvalReport, compare, find_previous, summarise, write_report
+from sr_evals.report import (
+    REPORTS_DIR,
+    EvalReport,
+    compare,
+    find_previous,
+    render_comparison,
+    summarise,
+    write_report,
+)
 from sr_evals.retrieval import load_queries
 from sr_evals.runner import CaseResult, run_cases
 from sr_evals.scorers import WorldIndex, score_case
@@ -89,12 +104,31 @@ def _git_commit() -> str:
         return "unknown"
 
 
+def dataset_path(value: str) -> Path:
+    """A dataset by version (`v1`, `holdout_v1`) or by path."""
+    return DATASETS.get(value) or Path(value)
+
+
+def _report_dirs(args: argparse.Namespace) -> list[Path]:
+    given = [args.reports_dir] if args.reports_dir else []
+    return [*given, REPORTS_DIR, project_root() / "var" / "evals" / "reports"]
+
+
+def load_report(ref: str, dirs: list[Path]) -> tuple[EvalReport, Path]:
+    """A report by id (looked up in `dirs`) or by path, and the file it came from."""
+    for path in [Path(ref), *(d / f"{ref}.json" for d in dirs)]:
+        if path.suffix == ".json" and path.is_file():
+            return EvalReport.model_validate_json(path.read_text()), path
+    raise FileNotFoundError(f"no report {ref!r} in {', '.join(str(d) for d in dirs)}")
+
+
 def _build(args: argparse.Namespace) -> int:
-    config = SimConfig()
-    dataset = build_dataset(generate(config), config)
-    write_dataset(dataset, args.out)
+    config = replace(SimConfig(), seed=DATASET_SEEDS[args.set])
+    dataset = build_dataset(generate(config), config, version=args.set)
+    out = args.out or DATASETS[args.set]
+    write_dataset(dataset, out)
     references = Counter(c.reference for c in dataset.cases)
-    print(f"{len(dataset.cases)} cases written to {args.out}")
+    print(f"{len(dataset.cases)} cases written to {out} (seed {config.seed})")
     print("references: " + ", ".join(f"{k}={n}" for k, n in sorted(references.items())))
     return 0
 
@@ -114,6 +148,24 @@ def _run(args: argparse.Namespace, connect: Connect) -> int:
             "sr-evals: set MCP_HTTP_TOKEN (the MCP server's bearer token) in .env", file=sys.stderr
         )
         return 2
+
+    reports_dir = args.reports_dir or (
+        project_root() / "var" / "evals" / "reports" if args.dry_run else REPORTS_DIR
+    )
+    base: EvalReport | None = None
+    if args.compare_to:
+        try:
+            base, _ = load_report(args.compare_to, _report_dirs(args))
+        except FileNotFoundError as error:
+            print(f"sr-evals: --compare-to: {error}", file=sys.stderr)
+            return 2
+        if base.dataset_version != dataset.version:
+            print(
+                f"sr-evals: --compare-to {args.compare_to} is on dataset "
+                f"{base.dataset_version}, not {dataset.version}",
+                file=sys.stderr,
+            )
+            return 2
 
     world = world_for(dataset)
     index = WorldIndex.of(world)
@@ -198,9 +250,6 @@ def _run(args: argparse.Namespace, connect: Connect) -> int:
         (runs_dir / f"{result.case.case_id}.json").write_text(json.dumps(body, indent=2) + "\n")
 
     scores = [score_case(r.case, r.run, index, error=r.error) for r in results]
-    reports_dir = args.reports_dir or (
-        project_root() / "var" / "evals" / "reports" if args.dry_run else REPORTS_DIR
-    )
     report = EvalReport(
         report_id=report_id,
         created_at=now.strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -226,7 +275,7 @@ def _run(args: argparse.Namespace, connect: Connect) -> int:
         scores=scores,
         comparison=None,
     )
-    previous = find_previous(
+    previous = base or find_previous(
         reports_dir, case_set=args.cases, dataset_version=dataset.version, before=report_id
     )
     if previous is not None:
@@ -256,6 +305,73 @@ def _seeded_world_matches(dataset: Dataset, labels: Path) -> bool:
         )
         return False
     return True
+
+
+def _compare(args: argparse.Namespace) -> int:
+    dirs = _report_dirs(args)
+    try:
+        older, _ = load_report(args.older, dirs)
+        newer, _ = load_report(args.newer, dirs)
+    except FileNotFoundError as error:
+        print(f"sr-evals: {error}", file=sys.stderr)
+        return 2
+    if older.dataset_version != newer.dataset_version:
+        print(
+            f"sr-evals: the runs are on different datasets ({older.dataset_version}, "
+            f"{newer.dataset_version}): their cases are not the same",
+            file=sys.stderr,
+        )
+        return 2
+    print(render_comparison(newer, older))
+    return 0
+
+
+def _rescore(args: argparse.Namespace) -> int:
+    """Score a run's stored answers again, with today's scorers; compared with the original."""
+    try:
+        original, path = load_report(args.report, _report_dirs(args))
+    except FileNotFoundError as error:
+        print(f"sr-evals: {error}", file=sys.stderr)
+        return 2
+    if original.dataset_version not in DATASETS:
+        print(f"sr-evals: unknown dataset {original.dataset_version!r}", file=sys.stderr)
+        return 2
+    runs = (args.runs_dir or project_root() / "var" / "evals" / "runs") / original.report_id
+    missing = [s.case_id for s in original.scores if not (runs / f"{s.case_id}.json").is_file()]
+    if missing:
+        print(f"sr-evals: no stored run in {runs} for {', '.join(missing)}", file=sys.stderr)
+        return 2
+    dataset = load_dataset(DATASETS[original.dataset_version])
+    by_id = {c.case_id: c for c in dataset.cases}
+    index = WorldIndex.of(world_for(dataset))
+    scores = []
+    for old in original.scores:
+        body = json.loads((runs / f"{old.case_id}.json").read_text())
+        if set(body) == {"error"}:
+            scores.append(score_case(by_id[old.case_id], None, index, error=body["error"]))
+        else:
+            scores.append(score_case(by_id[old.case_id], AgentRun.model_validate(body), index))
+    rescored = original.model_copy(
+        update={
+            "report_id": f"{original.report_id}-rescored",
+            "flags": original.flags
+            | {
+                "rescored_from": original.report_id,
+                "rescored_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "rescored_commit": _git_commit(),
+            },
+            "metrics": summarise(scores, model=original.model),
+            "scores": scores,
+        }
+    )
+    rescored = rescored.model_copy(update={"comparison": compare(rescored, original)})
+    _, md_path = write_report(rescored, path.parent)
+    print(
+        f"accuracy {original.metrics.accuracy * 100:.1f}% -> "
+        f"{rescored.metrics.accuracy * 100:.1f}% over {rescored.metrics.cases} cases"
+    )
+    print(f"report: {md_path}")
+    return 0
 
 
 def _serve_oracle(args: argparse.Namespace) -> int:
@@ -319,8 +435,11 @@ def main(argv: list[str] | None = None, *, connect: Connect = connect_http) -> i
     parser = argparse.ArgumentParser(prog="sr-evals", description="SR-Agent evaluation.")
     commands = parser.add_subparsers(dest="command", required=True)
 
-    build = commands.add_parser("build", help="rebuild the frozen dataset from the default world")
-    build.add_argument("--out", type=Path, default=DATASET_V1)
+    build = commands.add_parser("build", help="rebuild a frozen dataset from its world")
+    build.add_argument(
+        "--set", choices=sorted(DATASETS), default="v1", help="v1 (development) or holdout_v1"
+    )
+    build.add_argument("--out", type=Path, help="default packages/evals/datasets/<set>.json")
 
     run = commands.add_parser("run", help="run the agent over the dataset and write a report")
     run.add_argument("--cases", default="all", help="all, smoke, or case ids separated by commas")
@@ -350,7 +469,10 @@ def main(argv: list[str] | None = None, *, connect: Connect = connect_http) -> i
     run.add_argument("--time-limit", type=float, help="seconds per case")
     run.add_argument("--label", help="a short tag for the report id")
     run.add_argument("--mcp-url")
-    run.add_argument("--dataset", type=Path, default=DATASET_V1)
+    run.add_argument(
+        "--dataset", type=dataset_path, default=DATASET_V1, help="v1, holdout_v1 or a path"
+    )
+    run.add_argument("--compare-to", help="the report id to compare with (default: the latest)")
     run.add_argument("--labels", type=Path, default=project_root() / "var" / "sim" / "labels.json")
     run.add_argument("--reports-dir", type=Path)
     run.add_argument("--runs-dir", type=Path)
@@ -367,12 +489,26 @@ def main(argv: list[str] | None = None, *, connect: Connect = connect_http) -> i
     )
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=8766)
-    serve.add_argument("--dataset", type=Path, default=DATASET_V1)
+    serve.add_argument("--dataset", type=dataset_path, default=DATASET_V1)
     serve.add_argument(
         "--labels", type=Path, default=project_root() / "var" / "sim" / "labels.json"
     )
 
+    compare_runs = commands.add_parser("compare", help="two reports side by side, with a verdict")
+    compare_runs.add_argument("older", help="report id or path")
+    compare_runs.add_argument("newer", help="report id or path")
+    compare_runs.add_argument("--reports-dir", type=Path)
+
+    rescore = commands.add_parser("rescore", help="score a run's stored answers again")
+    rescore.add_argument("report", help="report id or path")
+    rescore.add_argument("--reports-dir", type=Path)
+    rescore.add_argument("--runs-dir", type=Path)
+
     args = parser.parse_args(argv)
+    if args.command == "compare":
+        return _compare(args)
+    if args.command == "rescore":
+        return _rescore(args)
     if args.command == "serve-oracle":
         return _serve_oracle(args)
     if args.command == "build":

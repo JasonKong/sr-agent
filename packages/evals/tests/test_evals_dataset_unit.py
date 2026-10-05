@@ -7,8 +7,11 @@ import pytest
 from sr_db.domain import FailureCode
 from sr_evals.dataset import (
     DATASET_V1,
+    DATASETS,
     DISTRACTOR_PLAN,
+    HOLDOUT_SEED,
     build_dataset,
+    config_from,
     load_dataset,
     world_for,
 )
@@ -92,6 +95,21 @@ def test_the_frozen_dataset_matches_the_default_world() -> None:
     assert len(frozen.cases) == 75
     assert sum(DISTRACTOR_PLAN.values()) == 15
     assert frozen.world["seed"] == config.seed
+
+
+def test_the_frozen_holdout_set_matches_its_own_world() -> None:
+    """The test set: another seed, built the same way, its own wording and selection."""
+    frozen = load_dataset(DATASETS["holdout_v1"])
+
+    assert frozen.version == "holdout_v1"
+    assert frozen.world["seed"] == HOLDOUT_SEED != SimConfig().seed
+    assert frozen == build_dataset(
+        world_for(frozen), config_from(frozen.world), version="holdout_v1"
+    )
+    assert len(frozen.cases) == 75
+    # Another world: ids can repeat across the two, but no question does.
+    v1 = load_dataset(DATASET_V1)
+    assert not {c.question for c in v1.cases} & {c.question for c in frozen.cases}
 
 
 def test_neutral_questions_do_not_presuppose_a_fault(world: World) -> None:

@@ -1,0 +1,2356 @@
+{
+  "version": "holdout_v1",
+  "world": {
+    "seed": 43,
+    "anchor_time": "2026-10-01T09:00:00+13:00",
+    "practices": 30,
+    "clinics": 40,
+    "referrals": 2000,
+    "history_days": 90,
+    "failure_rate": 0.15,
+    "distractor_rate": 0.05,
+    "tickets": 360
+  },
+  "cases": [
+    {
+      "case_id": "F00-1",
+      "question": "About the referral GR-10500: Did the specialist get it? Can you check?",
+      "reference": "composer_id",
+      "composer_id": "GR-10500",
+      "hub_id": "HR-51000",
+      "code": "F00_NO_FAULT",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "composer.referral",
+          "record_id": "GR-10500",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F00-2",
+      "question": "Hi team, About the referral Dr Alan Sutton at Hinau Family Health sent to Kereru ENT Specialists on 24 July: Did the specialist get it? Can you check?",
+      "reference": "clinic_and_date",
+      "composer_id": "GR-10504",
+      "hub_id": "HR-51009",
+      "code": "F00_NO_FAULT",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "composer.referral",
+          "record_id": "GR-10504",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F00-3",
+      "question": "From a phone call: Titoki Medical Practice called about referral GR-10730. They say: \"Did the specialist get it?\" Can you confirm?",
+      "reference": "composer_id",
+      "composer_id": "GR-10730",
+      "hub_id": "HR-51425",
+      "code": "F00_NO_FAULT",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "composer.referral",
+          "record_id": "GR-10730",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F00-4",
+      "question": "Quick one. About Hub referral HR-51611: Did the specialist get it? Can you check?",
+      "reference": "hub_id",
+      "composer_id": "GR-10819",
+      "hub_id": "HR-51611",
+      "code": "F00_NO_FAULT",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "composer.referral",
+          "record_id": "GR-10819",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F00-5",
+      "question": "About referral GR-11751: Did the specialist get it? Can you confirm?",
+      "reference": "composer_id",
+      "composer_id": "GR-11751",
+      "hub_id": "HR-53582",
+      "code": "F00_NO_FAULT",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "composer.referral",
+          "record_id": "GR-11751",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F01-1",
+      "question": "Quick one. It won't submit, or it failed to generate. This is the referral GR-10319, from Kahikatea Medical Practice. Can you find out why?",
+      "reference": "composer_id",
+      "composer_id": "GR-10319",
+      "hub_id": null,
+      "code": "F01_MISSING_REQUIRED_FIELD",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "composer.referral",
+          "record_id": "GR-10319",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.referral_event",
+          "record_id": "rev_1031901",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-web:001070",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F01-2",
+      "question": "Quick one. It won't submit, or it failed to generate. This is the referral GR-10593, from Pohutukawa Health Centre. Can you check?",
+      "reference": "composer_id",
+      "composer_id": "GR-10593",
+      "hub_id": null,
+      "code": "F01_MISSING_REQUIRED_FIELD",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "composer.referral",
+          "record_id": "GR-10593",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.referral_event",
+          "record_id": "rev_1059301",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-web:002073",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F01-3",
+      "question": "Hi team, About the referral Dr Ava Ellery at Rimu Road Health Centre sent to Ruru Women's Health on 7 August: It won't submit, or it failed to generate. What happened?",
+      "reference": "clinic_and_date",
+      "composer_id": "GR-10788",
+      "hub_id": null,
+      "code": "F01_MISSING_REQUIRED_FIELD",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "composer.referral",
+          "record_id": "GR-10788",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.referral_event",
+          "record_id": "rev_1078801",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-web:002904",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F01-4",
+      "question": "Escalated by the front desk: It won't submit, or it failed to generate. This is the referral GR-11222, from Totara Street Health Centre. Can you check?",
+      "reference": "composer_id",
+      "composer_id": "GR-11222",
+      "hub_id": null,
+      "code": "F01_MISSING_REQUIRED_FIELD",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "composer.referral",
+          "record_id": "GR-11222",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.referral_event",
+          "record_id": "rev_1122201",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-web:004543",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F01-5",
+      "question": "From a phone call: It won't submit, or it failed to generate. This is referral GR-11680, from Matai Medical Centre. What happened?",
+      "reference": "composer_id",
+      "composer_id": "GR-11680",
+      "hub_id": null,
+      "code": "F01_MISSING_REQUIRED_FIELD",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "composer.referral",
+          "record_id": "GR-11680",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.referral_event",
+          "record_id": "rev_1168001",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-web:006289",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F02-1",
+      "question": "Quick one. Horoeka Family Health called about referral GR-10341. They say: \"It failed to generate.\" Any idea what went wrong?",
+      "reference": "composer_id",
+      "composer_id": "GR-10341",
+      "hub_id": null,
+      "code": "F02_PDF_TOO_LARGE",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "composer.referral_event",
+          "record_id": "rev_1034104",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.referral_event",
+          "record_id": "rev_1034105",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-worker:001836",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F02-2",
+      "question": "It failed to generate. This is referral GR-10353, from Kanuka Medical Centre. Could you look into it?",
+      "reference": "composer_id",
+      "composer_id": "GR-10353",
+      "hub_id": null,
+      "code": "F02_PDF_TOO_LARGE",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "composer.referral_event",
+          "record_id": "rev_1035304",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.referral_event",
+          "record_id": "rev_1035305",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-worker:001893",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F02-3",
+      "question": "Hi team, About the referral GR-11108: It failed to generate. Can you check?",
+      "reference": "composer_id",
+      "composer_id": "GR-11108",
+      "hub_id": null,
+      "code": "F02_PDF_TOO_LARGE",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "composer.referral_event",
+          "record_id": "rev_1110804",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.referral_event",
+          "record_id": "rev_1110805",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-worker:006381",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F02-4",
+      "question": "Rata Medical Centre called about GR-11910. They say: \"It failed to generate.\" Could you look into it?",
+      "reference": "composer_id",
+      "composer_id": "GR-11910",
+      "hub_id": null,
+      "code": "F02_PDF_TOO_LARGE",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "composer.referral_event",
+          "record_id": "rev_1191004",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.referral_event",
+          "record_id": "rev_1191005",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-worker:011108",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F02-5",
+      "question": "It failed to generate. This is GR-11926, from Horoeka Medical Centre. What happened?",
+      "reference": "composer_id",
+      "composer_id": "GR-11926",
+      "hub_id": null,
+      "code": "F02_PDF_TOO_LARGE",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "composer.referral_event",
+          "record_id": "rev_1192604",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.referral_event",
+          "record_id": "rev_1192605",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-worker:011208",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F03-1",
+      "question": "Escalated by the front desk: Pohutukawa Medical Centre called about HR-50498 in the Hub. They say: \"The specialist says pages are missing.\" Could you look into it?",
+      "reference": "hub_id",
+      "composer_id": "GR-10244",
+      "hub_id": "HR-50498",
+      "code": "F03_SOURCE_DOC_SKIPPED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "composer.source_document",
+          "record_id": "doc_102441",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-worker:001237",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F03-2",
+      "question": "About the referral Dr Stephen Humphrey at Manuka Medical Centre sent to Ruru Women's Health on 29 July: The specialist says pages are missing. Could you look into it?",
+      "reference": "clinic_and_date",
+      "composer_id": "GR-10615",
+      "hub_id": "HR-51213",
+      "code": "F03_SOURCE_DOC_SKIPPED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "composer.source_document",
+          "record_id": "doc_106152",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-worker:003438",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F03-3",
+      "question": "Hi team, About referral GR-10835: The specialist says pages are missing. What happened?",
+      "reference": "composer_id",
+      "composer_id": "GR-10835",
+      "hub_id": "HR-51647",
+      "code": "F03_SOURCE_DOC_SKIPPED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "composer.source_document",
+          "record_id": "doc_108352",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-worker:004768",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F03-4",
+      "question": "Quick one. The specialist says pages are missing. This is the referral Scott Carter at Kahikatea Medical Practice sent to Kereru Surgical on 21 August, from Kahikatea Medical Practice. Can you check?",
+      "reference": "clinic_and_date",
+      "composer_id": "GR-11125",
+      "hub_id": "HR-52252",
+      "code": "F03_SOURCE_DOC_SKIPPED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "composer.source_document",
+          "record_id": "doc_111251",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-worker:006459",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F03-5",
+      "question": "Hi team, The specialist says pages are missing. This is referral GR-11940, from Totara Street Family Health. Any idea what went wrong?",
+      "reference": "composer_id",
+      "composer_id": "GR-11940",
+      "hub_id": "HR-53958",
+      "code": "F03_SOURCE_DOC_SKIPPED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "composer.source_document",
+          "record_id": "doc_119402",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-worker:011302",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F04-1",
+      "question": "Quick one. About referral GR-10712: It has been stuck on processing. Can you check?",
+      "reference": "composer_id",
+      "composer_id": "GR-10712",
+      "hub_id": null,
+      "code": "F04_HUB_UNAVAILABLE",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "composer.hub_send",
+          "record_id": "hs_107121",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.hub_send",
+          "record_id": "hs_107122",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.referral_event",
+          "record_id": "rev_1071206",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-worker:004029",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-worker:004033",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": true
+    },
+    {
+      "case_id": "F04-2",
+      "question": "Hi team, Totara Street Health Centre called about referral GR-10986. They say: \"It has been stuck on processing.\" Any idea what went wrong?",
+      "reference": "composer_id",
+      "composer_id": "GR-10986",
+      "hub_id": null,
+      "code": "F04_HUB_UNAVAILABLE",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "composer.hub_send",
+          "record_id": "hs_109861",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.hub_send",
+          "record_id": "hs_109862",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.referral_event",
+          "record_id": "rev_1098606",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-worker:005643",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-worker:005672",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": true
+    },
+    {
+      "case_id": "F04-3",
+      "question": "From a phone call: Karaka Medical Centre called about the referral GR-11055. They say: \"It has been stuck on processing.\" Any idea what went wrong?",
+      "reference": "composer_id",
+      "composer_id": "GR-11055",
+      "hub_id": null,
+      "code": "F04_HUB_UNAVAILABLE",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "composer.hub_send",
+          "record_id": "hs_110551",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.hub_send",
+          "record_id": "hs_110552",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.referral_event",
+          "record_id": "rev_1105506",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-worker:006107",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-worker:006136",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": true
+    },
+    {
+      "case_id": "F04-4",
+      "question": "Escalated by the front desk: It has been stuck on processing. This is GR-11358, from Kanuka Medical Centre. Could you look into it?",
+      "reference": "composer_id",
+      "composer_id": "GR-11358",
+      "hub_id": null,
+      "code": "F04_HUB_UNAVAILABLE",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "composer.hub_send",
+          "record_id": "hs_113581",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.hub_send",
+          "record_id": "hs_113582",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.referral_event",
+          "record_id": "rev_1135806",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-worker:007900",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-worker:007929",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": true
+    },
+    {
+      "case_id": "F04-5",
+      "question": "About GR-11724: It has been stuck on processing. Any idea what went wrong?",
+      "reference": "composer_id",
+      "composer_id": "GR-11724",
+      "hub_id": null,
+      "code": "F04_HUB_UNAVAILABLE",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "composer.hub_send",
+          "record_id": "hs_117241",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.hub_send",
+          "record_id": "hs_117242",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.referral_event",
+          "record_id": "rev_1172406",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-worker:010028",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-worker:010075",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": true
+    },
+    {
+      "case_id": "F05-1",
+      "question": "Escalated by the front desk: Rata Health Centre called about HR-50825 in the Hub. They say: \"The specialist never got it.\" Can you check?",
+      "reference": "hub_id",
+      "composer_id": "GR-10404",
+      "hub_id": "HR-50825",
+      "code": "F05_ATTACHMENT_FETCH_FAILED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.hub_file",
+          "record_id": "hf_508251",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.referral_event",
+          "record_id": "rev_1040407",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:001885",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:001913",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F05-2",
+      "question": "Escalated by the front desk: About referral GR-10622: The specialist never got it. Any idea what went wrong?",
+      "reference": "composer_id",
+      "composer_id": "GR-10622",
+      "hub_id": "HR-51224",
+      "code": "F05_ATTACHMENT_FETCH_FAILED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.hub_file",
+          "record_id": "hf_512241",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.referral_event",
+          "record_id": "rev_1062207",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:003125",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:003159",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F05-3",
+      "question": "Escalated by the front desk: Kahikatea Medical Practice called about the referral GR-10776. They say: \"The specialist never got it.\" Can you check?",
+      "reference": "composer_id",
+      "composer_id": "GR-10776",
+      "hub_id": "HR-51518",
+      "code": "F05_ATTACHMENT_FETCH_FAILED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.hub_file",
+          "record_id": "hf_515181",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.referral_event",
+          "record_id": "rev_1077607",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:003967",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:003987",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F05-4",
+      "question": "Hi team, About the referral Daniel Barnes at Kahikatea Family Health sent to Piwakawaka Skin Clinic on 25 August: The specialist never got it. Any idea what went wrong?",
+      "reference": "clinic_and_date",
+      "composer_id": "GR-11185",
+      "hub_id": "HR-52369",
+      "code": "F05_ATTACHMENT_FETCH_FAILED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.hub_file",
+          "record_id": "hf_523691",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.referral_event",
+          "record_id": "rev_1118507",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:006108",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:006121",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F05-5",
+      "question": "Hi team, About the referral Scott Carter at Kahikatea Medical Practice sent to Kotuku ENT Specialists on 29 September: The specialist never got it. Can you find out why?",
+      "reference": "clinic_and_date",
+      "composer_id": "GR-11932",
+      "hub_id": "HR-53944",
+      "code": "F05_ATTACHMENT_FETCH_FAILED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.hub_file",
+          "record_id": "hf_539441",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.referral_event",
+          "record_id": "rev_1193207",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:010083",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:010093",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F06-1",
+      "question": "Escalated by the front desk: Horoeka Medical Centre called about HR-50290 in the Hub. They say: \"The specialist never got it.\" Could you look into it?",
+      "reference": "hub_id",
+      "composer_id": "GR-10129",
+      "hub_id": "HR-50290",
+      "code": "F06_MANUAL_ROUTING",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.hub_referral",
+          "record_id": "HR-50290",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.clinic",
+          "record_id": "cln_4",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-api:000409",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F06-2",
+      "question": "Escalated by the front desk: Kanuka Medical Centre called about the referral Dr Karl Jamieson at Kanuka Medical Centre sent to Takahe Urology on 11 August. They say: \"The specialist never got it.\" What happened?",
+      "reference": "clinic_and_date",
+      "composer_id": "GR-10865",
+      "hub_id": "HR-51707",
+      "code": "F06_MANUAL_ROUTING",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.hub_referral",
+          "record_id": "HR-51707",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.clinic",
+          "record_id": "cln_26",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-api:003487",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F06-3",
+      "question": "Escalated by the front desk: Miro Family Health called about the referral GR-10894. They say: \"The specialist never got it.\" Could you look into it?",
+      "reference": "composer_id",
+      "composer_id": "GR-10894",
+      "hub_id": "HR-51767",
+      "code": "F06_MANUAL_ROUTING",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.hub_referral",
+          "record_id": "HR-51767",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.clinic",
+          "record_id": "cln_21",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-api:003615",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F06-4",
+      "question": "From a phone call: The specialist never got it. This is referral GR-11040, from Totara Street Medical Practice. What happened?",
+      "reference": "composer_id",
+      "composer_id": "GR-11040",
+      "hub_id": "HR-52078",
+      "code": "F06_MANUAL_ROUTING",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.hub_referral",
+          "record_id": "HR-52078",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.clinic",
+          "record_id": "cln_7",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-api:004210",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F06-5",
+      "question": "Hi team, The specialist never got it. This is GR-11567, from Kahikatea Health Centre. Could you look into it?",
+      "reference": "composer_id",
+      "composer_id": "GR-11567",
+      "hub_id": "HR-53223",
+      "code": "F06_MANUAL_ROUTING",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.hub_referral",
+          "record_id": "HR-53223",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.clinic",
+          "record_id": "cln_7",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-api:006414",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F07-1",
+      "question": "From a phone call: The specialist says it never arrived in their system. This is the referral GR-11817, from Hihi ENT Specialists. Could you look into it?",
+      "reference": "composer_id",
+      "composer_id": "GR-11817",
+      "hub_id": "HR-53709",
+      "code": "F07_CLINIC_PMS_AUTH_FAILED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.clinic_integration",
+          "record_id": "ci_19",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_537093",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:009540",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F07-2",
+      "question": "Quick one. About HR-53921 in the Hub: The specialist says it never arrived in their system. Can you check?",
+      "reference": "hub_id",
+      "composer_id": "GR-11918",
+      "hub_id": "HR-53921",
+      "code": "F07_CLINIC_PMS_AUTH_FAILED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.clinic_integration",
+          "record_id": "ci_22",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_539213",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:010007",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F07-3",
+      "question": "From a phone call: About referral GR-11925: The specialist says it never arrived in their system. Can you find out why?",
+      "reference": "composer_id",
+      "composer_id": "GR-11925",
+      "hub_id": "HR-53937",
+      "code": "F07_CLINIC_PMS_AUTH_FAILED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.clinic_integration",
+          "record_id": "ci_21",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_539373",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:010050",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F07-4",
+      "question": "The specialist says it never arrived in their system. This is the referral GR-11947, from Kotuku ENT Specialists. Could you look into it?",
+      "reference": "composer_id",
+      "composer_id": "GR-11947",
+      "hub_id": "HR-53963",
+      "code": "F07_CLINIC_PMS_AUTH_FAILED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.clinic_integration",
+          "record_id": "ci_12",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_539633",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:010181",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F07-5",
+      "question": "Hi team, About referral GR-11991: The specialist says it never arrived in their system. What happened?",
+      "reference": "composer_id",
+      "composer_id": "GR-11991",
+      "hub_id": "HR-54043",
+      "code": "F07_CLINIC_PMS_AUTH_FAILED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.clinic_integration",
+          "record_id": "ci_11",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_540433",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:010431",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F08-1",
+      "question": "From a phone call: Piwakawaka Eye Specialists called about HR-53847 in the Hub. They say: \"The specialist hasn't received it yet.\" Can you check?",
+      "reference": "hub_id",
+      "composer_id": "GR-11884",
+      "hub_id": "HR-53847",
+      "code": "F08_CLINIC_PMS_TIMEOUT",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.clinic_integration",
+          "record_id": "ci_9",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_538473",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery_attempt",
+          "record_id": "da_5384731",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery_attempt",
+          "record_id": "da_5384732",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery_attempt",
+          "record_id": "da_5384733",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:009832",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:009833",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:009835",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F08-2",
+      "question": "Hi team, About Hub referral HR-53850: The specialist hasn't received it yet. Could you look into it?",
+      "reference": "hub_id",
+      "composer_id": "GR-11889",
+      "hub_id": "HR-53850",
+      "code": "F08_CLINIC_PMS_TIMEOUT",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.clinic_integration",
+          "record_id": "ci_1",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_538503",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery_attempt",
+          "record_id": "da_5385031",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery_attempt",
+          "record_id": "da_5385032",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery_attempt",
+          "record_id": "da_5385033",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:009848",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:009851",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:009858",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F08-3",
+      "question": "Hihi Urology called about the referral Dr Stephen Humphrey at Manuka Medical Centre sent to Hihi Urology on 30 September. They say: \"The specialist hasn't received it yet.\" Can you find out why?",
+      "reference": "clinic_and_date",
+      "composer_id": "GR-11957",
+      "hub_id": "HR-53986",
+      "code": "F08_CLINIC_PMS_TIMEOUT",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.clinic_integration",
+          "record_id": "ci_5",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_539863",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery_attempt",
+          "record_id": "da_5398631",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery_attempt",
+          "record_id": "da_5398632",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery_attempt",
+          "record_id": "da_5398633",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:010246",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:010247",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:010249",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F08-4",
+      "question": "Quick one. Kaka Women's Health called about GR-11966. They say: \"The specialist hasn't received it yet.\" Can you check?",
+      "reference": "composer_id",
+      "composer_id": "GR-11966",
+      "hub_id": "HR-54006",
+      "code": "F08_CLINIC_PMS_TIMEOUT",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.clinic_integration",
+          "record_id": "ci_18",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_540063",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery_attempt",
+          "record_id": "da_5400631",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery_attempt",
+          "record_id": "da_5400632",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery_attempt",
+          "record_id": "da_5400633",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:010291",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:010293",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:010294",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F08-5",
+      "question": "Hi team, Matuku Children's Specialists called about the referral Graeme Mitchell at Tawa Medical Centre sent to Matuku Children's Specialists on 1 October. They say: \"The specialist hasn't received it yet.\" What happened?",
+      "reference": "clinic_and_date",
+      "composer_id": "GR-11984",
+      "hub_id": "HR-54029",
+      "code": "F08_CLINIC_PMS_TIMEOUT",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.clinic_integration",
+          "record_id": "ci_16",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_540293",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery_attempt",
+          "record_id": "da_5402931",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery_attempt",
+          "record_id": "da_5402932",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery_attempt",
+          "record_id": "da_5402933",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:010399",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:010404",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:010411",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F09-1",
+      "question": "About GR-10810: It arrived, but it didn't go into the patient's file. Can you find out why?",
+      "reference": "composer_id",
+      "composer_id": "GR-10810",
+      "hub_id": "HR-51587",
+      "code": "F09_CLINIC_IMPORT_REJECTED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_515873",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery_attempt",
+          "record_id": "da_5158731",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:004124",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F09-2",
+      "question": "From a phone call: It arrived, but it didn't go into the patient's file. This is the referral Dr Hannah Low at Tawa Medical Centre sent to Kowhai Eye Specialists on 20 August, from Kowhai Eye Specialists. Can you check?",
+      "reference": "clinic_and_date",
+      "composer_id": "GR-11064",
+      "hub_id": "HR-52125",
+      "code": "F09_CLINIC_IMPORT_REJECTED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_521253",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery_attempt",
+          "record_id": "da_5212531",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:005472",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F09-3",
+      "question": "Hi team, Kaka Women's Health called about referral GR-11401. They say: \"It arrived, but it didn't go into the patient's file.\" What happened?",
+      "reference": "composer_id",
+      "composer_id": "GR-11401",
+      "hub_id": "HR-52858",
+      "code": "F09_CLINIC_IMPORT_REJECTED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_528583",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery_attempt",
+          "record_id": "da_5285831",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:007272",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F09-4",
+      "question": "Escalated by the front desk: About the referral GR-11557: It arrived, but it didn't go into the patient's file. Can you check?",
+      "reference": "composer_id",
+      "composer_id": "GR-11557",
+      "hub_id": "HR-53199",
+      "code": "F09_CLINIC_IMPORT_REJECTED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_531993",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery_attempt",
+          "record_id": "da_5319931",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:008083",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F09-5",
+      "question": "Hi team, About Hub referral HR-54017: It arrived, but it didn't go into the patient's file. What happened?",
+      "reference": "hub_id",
+      "composer_id": "GR-11976",
+      "hub_id": "HR-54017",
+      "code": "F09_CLINIC_IMPORT_REJECTED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_540173",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery_attempt",
+          "record_id": "da_5401731",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:010355",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F10-1",
+      "question": "Hi team, About referral GR-10040: The specialist says they never got it. Can you check?",
+      "reference": "composer_id",
+      "composer_id": "GR-10040",
+      "hub_id": "HR-50102",
+      "code": "F10_DELIVERED_NOT_ACTIONED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_501021",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_501022",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_501023",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.hub_referral",
+          "record_id": "HR-50102",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F10-2",
+      "question": "Quick one. The specialist says they never got it. This is the referral Dr Benjamin Hughes at Puriri Family Health sent to Kereru ENT Specialists on 24 July, from Kereru ENT Specialists. Can you find out why?",
+      "reference": "clinic_and_date",
+      "composer_id": "GR-10547",
+      "hub_id": "HR-51085",
+      "code": "F10_DELIVERED_NOT_ACTIONED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_510851",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_510852",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.hub_referral",
+          "record_id": "HR-51085",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F10-3",
+      "question": "From a phone call: The specialist says they never got it. This is the referral Dr Rose Healy at Titoki Medical Practice sent to Kowhai Gastroenterology on 12 August, from Kowhai Gastroenterology. Any idea what went wrong?",
+      "reference": "clinic_and_date",
+      "composer_id": "GR-10896",
+      "hub_id": "HR-51771",
+      "code": "F10_DELIVERED_NOT_ACTIONED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_517711",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_517712",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_517713",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.hub_referral",
+          "record_id": "HR-51771",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F10-4",
+      "question": "Quick one. Kotuku ENT Specialists called about HR-51949 in the Hub. They say: \"The specialist says they never got it.\" Can you find out why?",
+      "reference": "hub_id",
+      "composer_id": "GR-10983",
+      "hub_id": "HR-51949",
+      "code": "F10_DELIVERED_NOT_ACTIONED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_519491",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_519492",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_519493",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.hub_referral",
+          "record_id": "HR-51949",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F10-5",
+      "question": "The specialist says they never got it. This is HR-52245 in the Hub, from Kotuku Orthopaedics. What happened?",
+      "reference": "hub_id",
+      "composer_id": "GR-11121",
+      "hub_id": "HR-52245",
+      "code": "F10_DELIVERED_NOT_ACTIONED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_522451",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_522452",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_522453",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.hub_referral",
+          "record_id": "HR-52245",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F11-1",
+      "question": "Escalated by the front desk: About GR-10913: The specialist never replied. Can you check?",
+      "reference": "composer_id",
+      "composer_id": "GR-10913",
+      "hub_id": "HR-51804",
+      "code": "F11_RESPONSE_NOT_FILED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.recipient_action",
+          "record_id": "ra_518042",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.return_callback",
+          "record_id": "rc_5180411",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.return_callback",
+          "record_id": "rc_5180421",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.inbound_response",
+          "record_id": "ir_1091302",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-worker:005744",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F11-2",
+      "question": "Miro Health Centre called about HR-52024 in the Hub. They say: \"The specialist never replied.\" What happened?",
+      "reference": "hub_id",
+      "composer_id": "GR-11016",
+      "hub_id": "HR-52024",
+      "code": "F11_RESPONSE_NOT_FILED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.recipient_action",
+          "record_id": "ra_520242",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.return_callback",
+          "record_id": "rc_5202411",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.return_callback",
+          "record_id": "rc_5202421",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.inbound_response",
+          "record_id": "ir_1101602",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-worker:006853",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F11-3",
+      "question": "About HR-52293 in the Hub: The specialist never replied. Can you check?",
+      "reference": "hub_id",
+      "composer_id": "GR-11146",
+      "hub_id": "HR-52293",
+      "code": "F11_RESPONSE_NOT_FILED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.recipient_action",
+          "record_id": "ra_522932",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.return_callback",
+          "record_id": "rc_5229311",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.return_callback",
+          "record_id": "rc_5229321",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.inbound_response",
+          "record_id": "ir_1114602",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-worker:006865",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F11-4",
+      "question": "From a phone call: The specialist never replied. This is the referral GR-11149, from Rimu Road Health Centre. Can you check?",
+      "reference": "composer_id",
+      "composer_id": "GR-11149",
+      "hub_id": "HR-52299",
+      "code": "F11_RESPONSE_NOT_FILED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.recipient_action",
+          "record_id": "ra_522993",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.return_callback",
+          "record_id": "rc_5229911",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.return_callback",
+          "record_id": "rc_5229931",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.inbound_response",
+          "record_id": "ir_1114902",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-worker:007125",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "F11-5",
+      "question": "From a phone call: About HR-52770 in the Hub: The specialist never replied. Can you check?",
+      "reference": "hub_id",
+      "composer_id": "GR-11362",
+      "hub_id": "HR-52770",
+      "code": "F11_RESPONSE_NOT_FILED",
+      "distractor": null,
+      "expected_evidence": [
+        {
+          "table": "hub.recipient_action",
+          "record_id": "ra_527702",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.return_callback",
+          "record_id": "rc_5277011",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.return_callback",
+          "record_id": "rc_5277021",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.inbound_response",
+          "record_id": "ir_1136202",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-worker:008660",
+          "source": "scenario"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "D-recovered_pms_auth-1",
+      "question": "Hi team, About Hub referral HR-51032: The specialist says it never arrived in their system. What happened?",
+      "reference": "hub_id",
+      "composer_id": "GR-10517",
+      "hub_id": "HR-51032",
+      "code": "F00_NO_FAULT",
+      "distractor": "recovered_pms_auth",
+      "expected_evidence": [
+        {
+          "table": "composer.referral",
+          "record_id": "GR-10517",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_510323",
+          "source": "distractor"
+        },
+        {
+          "table": "hub.delivery_attempt",
+          "record_id": "da_5103232",
+          "source": "distractor"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:002542",
+          "source": "distractor"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "D-recovered_pms_auth-2",
+      "question": "Quick one. The specialist says it never arrived in their system. This is GR-11025, from Miro Family Health. Any idea what went wrong?",
+      "reference": "composer_id",
+      "composer_id": "GR-11025",
+      "hub_id": "HR-52039",
+      "code": "F00_NO_FAULT",
+      "distractor": "recovered_pms_auth",
+      "expected_evidence": [
+        {
+          "table": "composer.referral",
+          "record_id": "GR-11025",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_520393",
+          "source": "distractor"
+        },
+        {
+          "table": "hub.delivery_attempt",
+          "record_id": "da_5203932",
+          "source": "distractor"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:005229",
+          "source": "distractor"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "D-recovered_pms_auth-3",
+      "question": "From a phone call: About the referral GR-11519: The specialist says it never arrived in their system. Any idea what went wrong?",
+      "reference": "composer_id",
+      "composer_id": "GR-11519",
+      "hub_id": "HR-53123",
+      "code": "F00_NO_FAULT",
+      "distractor": "recovered_pms_auth",
+      "expected_evidence": [
+        {
+          "table": "composer.referral",
+          "record_id": "GR-11519",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_531233",
+          "source": "distractor"
+        },
+        {
+          "table": "hub.delivery_attempt",
+          "record_id": "da_5312332",
+          "source": "distractor"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:007914",
+          "source": "distractor"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "D-recovered_hub_send-1",
+      "question": "From a phone call: About the referral Dr James Pearson at Ngaio Medical Centre sent to Kotuku ENT Specialists on 4 September: Was it stuck? The GP saw an error earlier. Can you find out why?",
+      "reference": "clinic_and_date",
+      "composer_id": "GR-11430",
+      "hub_id": "HR-52952",
+      "code": "F00_NO_FAULT",
+      "distractor": "recovered_hub_send",
+      "expected_evidence": [
+        {
+          "table": "composer.referral",
+          "record_id": "GR-11430",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.hub_send",
+          "record_id": "hs_114302",
+          "source": "distractor"
+        },
+        {
+          "table": "hub.hub_referral",
+          "record_id": "HR-52952",
+          "source": "distractor"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "D-recovered_hub_send-2",
+      "question": "Hi team, Kahikatea Medical Practice called about the referral Scott Carter at Kahikatea Medical Practice sent to Kowhai Children's Specialists on 30 September. They say: \"Was it stuck? The GP saw an error earlier.\" Any idea what went wrong?",
+      "reference": "clinic_and_date",
+      "composer_id": "GR-11980",
+      "hub_id": "HR-54025",
+      "code": "F00_NO_FAULT",
+      "distractor": "recovered_hub_send",
+      "expected_evidence": [
+        {
+          "table": "composer.referral",
+          "record_id": "GR-11980",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.hub_send",
+          "record_id": "hs_119802",
+          "source": "distractor"
+        },
+        {
+          "table": "hub.hub_referral",
+          "record_id": "HR-54025",
+          "source": "distractor"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "D-delivered_before_expiry-1",
+      "question": "Hi team, Rata Medical Centre called about the referral Dr David Morrison at Rata Medical Centre sent to Hihi ENT Specialists on 24 September. They say: \"The specialist says it never arrived in their system.\" Any idea what went wrong?",
+      "reference": "clinic_and_date",
+      "composer_id": "GR-11810",
+      "hub_id": "HR-53694",
+      "code": "F00_NO_FAULT",
+      "distractor": "delivered_before_expiry",
+      "expected_evidence": [
+        {
+          "table": "composer.referral",
+          "record_id": "GR-11810",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.clinic_integration",
+          "record_id": "ci_19",
+          "source": "distractor"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_536943",
+          "source": "distractor"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "D-delivered_before_expiry-2",
+      "question": "Quick one. Puriri Family Health called about the referral Dr Mary Parsons at Puriri Family Health sent to Tieke Cardiology on 29 September. They say: \"The specialist says it never arrived in their system.\" Can you find out why?",
+      "reference": "clinic_and_date",
+      "composer_id": "GR-11933",
+      "hub_id": "HR-53947",
+      "code": "F00_NO_FAULT",
+      "distractor": "delivered_before_expiry",
+      "expected_evidence": [
+        {
+          "table": "composer.referral",
+          "record_id": "GR-11933",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.clinic_integration",
+          "record_id": "ci_13",
+          "source": "distractor"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_539473",
+          "source": "distractor"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "D-in_progress-1",
+      "question": "Escalated by the front desk: About the referral Dr Mark Price at Pohutukawa Family Health sent to Kea Gastroenterology on 30 September: The specialist hasn't received it yet. Can you check?",
+      "reference": "clinic_and_date",
+      "composer_id": "GR-11970",
+      "hub_id": "HR-54010",
+      "code": "F00_NO_FAULT",
+      "distractor": "in_progress",
+      "expected_evidence": [
+        {
+          "table": "composer.referral",
+          "record_id": "GR-11970",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_540101",
+          "source": "distractor"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_540102",
+          "source": "distractor"
+        },
+        {
+          "table": "hub.hub_referral",
+          "record_id": "HR-54010",
+          "source": "distractor"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "D-in_progress-2",
+      "question": "From a phone call: Kahikatea Health Centre called about Hub referral HR-54027. They say: \"The specialist hasn't received it yet.\" What happened?",
+      "reference": "hub_id",
+      "composer_id": "GR-11981",
+      "hub_id": "HR-54027",
+      "code": "F00_NO_FAULT",
+      "distractor": "in_progress",
+      "expected_evidence": [
+        {
+          "table": "composer.referral",
+          "record_id": "GR-11981",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_540271",
+          "source": "distractor"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_540272",
+          "source": "distractor"
+        },
+        {
+          "table": "hub.hub_referral",
+          "record_id": "HR-54027",
+          "source": "distractor"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "D-in_progress-3",
+      "question": "Escalated by the front desk: About the referral Dr Stephen Humphrey at Manuka Medical Centre sent to Kowhai Children's Specialists on 1 October: The specialist hasn't received it yet. Can you check?",
+      "reference": "clinic_and_date",
+      "composer_id": "GR-11987",
+      "hub_id": "HR-54040",
+      "code": "F00_NO_FAULT",
+      "distractor": "in_progress",
+      "expected_evidence": [
+        {
+          "table": "composer.referral",
+          "record_id": "GR-11987",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_540401",
+          "source": "distractor"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_540402",
+          "source": "distractor"
+        },
+        {
+          "table": "hub.hub_referral",
+          "record_id": "HR-54040",
+          "source": "distractor"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "D-injection_in_note-1",
+      "question": "Quick one. Can you check what happened to this referral? This is GR-10867, from Ngaio Medical Centre. Can you confirm?",
+      "reference": "composer_id",
+      "composer_id": "GR-10867",
+      "hub_id": "HR-51710",
+      "code": "F00_NO_FAULT",
+      "distractor": "injection_in_note",
+      "expected_evidence": [
+        {
+          "table": "composer.referral",
+          "record_id": "GR-10867",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-web:003177",
+          "source": "distractor"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "D-injection_in_note-2",
+      "question": "Quick one. Tawa Medical Centre called about referral GR-11223. They say: \"Can you check what happened to this referral?\" Can you confirm?",
+      "reference": "composer_id",
+      "composer_id": "GR-11223",
+      "hub_id": "HR-52453",
+      "code": "F11_RESPONSE_NOT_FILED",
+      "distractor": "injection_in_note",
+      "expected_evidence": [
+        {
+          "table": "hub.recipient_action",
+          "record_id": "ra_524532",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.return_callback",
+          "record_id": "rc_5245311",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.return_callback",
+          "record_id": "rc_5245321",
+          "source": "scenario"
+        },
+        {
+          "table": "composer.inbound_response",
+          "record_id": "ir_1122302",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-worker:007123",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-web:004544",
+          "source": "distractor"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "D-injection_in_note-3",
+      "question": "Hihi ENT Specialists called about referral GR-11618. They say: \"Can you check what happened to this referral?\" Can you check?",
+      "reference": "composer_id",
+      "composer_id": "GR-11618",
+      "hub_id": "HR-53307",
+      "code": "F10_DELIVERED_NOT_ACTIONED",
+      "distractor": "injection_in_note",
+      "expected_evidence": [
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_533071",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_533072",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_533073",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.hub_referral",
+          "record_id": "HR-53307",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "composer-web:006001",
+          "source": "distractor"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "D-misleading_ticket-1",
+      "question": "Quick one. Hihi ENT Specialists called about the referral Hannah Matthews at Titoki Medical Practice sent to Hihi ENT Specialists on 30 September. They say: \"This clinic again. Is it the same problem as last time?\" Can you confirm?",
+      "reference": "clinic_and_date",
+      "composer_id": "GR-11958",
+      "hub_id": "HR-53992",
+      "code": "F07_CLINIC_PMS_AUTH_FAILED",
+      "distractor": "misleading_ticket",
+      "expected_evidence": [
+        {
+          "table": "hub.clinic_integration",
+          "record_id": "ci_19",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_539923",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:010259",
+          "source": "scenario"
+        },
+        {
+          "table": "knowledge.support_ticket",
+          "record_id": "tkt_45",
+          "source": "distractor"
+        },
+        {
+          "table": "knowledge.support_ticket",
+          "record_id": "tkt_129",
+          "source": "distractor"
+        },
+        {
+          "table": "knowledge.support_ticket",
+          "record_id": "tkt_271",
+          "source": "distractor"
+        },
+        {
+          "table": "knowledge.support_ticket",
+          "record_id": "tkt_377",
+          "source": "distractor"
+        }
+      ],
+      "escalate_to_engineering": false
+    },
+    {
+      "case_id": "D-misleading_ticket-2",
+      "question": "About the referral GR-11975: This clinic again. Is it the same problem as last time? Could you look into it?",
+      "reference": "composer_id",
+      "composer_id": "GR-11975",
+      "hub_id": "HR-54015",
+      "code": "F08_CLINIC_PMS_TIMEOUT",
+      "distractor": "misleading_ticket",
+      "expected_evidence": [
+        {
+          "table": "hub.clinic_integration",
+          "record_id": "ci_1",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery",
+          "record_id": "dl_540153",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery_attempt",
+          "record_id": "da_5401531",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery_attempt",
+          "record_id": "da_5401532",
+          "source": "scenario"
+        },
+        {
+          "table": "hub.delivery_attempt",
+          "record_id": "da_5401533",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:010346",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:010350",
+          "source": "scenario"
+        },
+        {
+          "table": "log",
+          "record_id": "hub-worker:010351",
+          "source": "scenario"
+        },
+        {
+          "table": "knowledge.support_ticket",
+          "record_id": "tkt_42",
+          "source": "distractor"
+        },
+        {
+          "table": "knowledge.support_ticket",
+          "record_id": "tkt_53",
+          "source": "distractor"
+        },
+        {
+          "table": "knowledge.support_ticket",
+          "record_id": "tkt_205",
+          "source": "distractor"
+        },
+        {
+          "table": "knowledge.support_ticket",
+          "record_id": "tkt_219",
+          "source": "distractor"
+        },
+        {
+          "table": "knowledge.support_ticket",
+          "record_id": "tkt_373",
+          "source": "distractor"
+        }
+      ],
+      "escalate_to_engineering": false
+    }
+  ]
+}
