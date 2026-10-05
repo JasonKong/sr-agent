@@ -14,14 +14,14 @@ SR-Agent is a learning project for **MCP**, **RAG** and **agents**. It runs enti
 
 ## Status
 
-🚧 M0–M2 are complete: the simulated world and the MCP server (8 read-only tools, runbook resources, a diagnosis prompt, stdio and HTTP). Next is M3, the baseline agent and evaluation. See the [implementation plan](docs/DESIGN.md#10-implementation-plan-for-claude-code).
+🚧 M0–M2 are complete: the simulated world and the MCP server (8 read-only tools, runbook resources, a diagnosis prompt, stdio and HTTP). M3 is in progress: the baseline agent (`sra ask`) works; evaluation is next. See the [implementation plan](docs/DESIGN.md#10-implementation-plan-for-claude-code).
 
 | Milestone | Scope | State |
 | --- | --- | --- |
 | M0 | Workspace, tooling, CI | ✅ Done |
 | M1 | Simulator: two systems, four legs, failures, distractors, tickets and runbooks | ✅ Done |
 | M2 | MCP server | ✅ Done |
-| M3 | Baseline agent and evaluation | — |
+| M3 | Baseline agent and evaluation | 🚧 In progress |
 | M4 | RAG over tickets and runbooks | — |
 | M5 | Agent hardening | — |
 | M6 | CS web console | — |
@@ -54,6 +54,13 @@ make test-integration
 ## Try it with Claude
 
 After the quick start, open the project in Claude Code, approve the `sr-agent` MCP server, and ask: *"The specialist says GR-11854 never arrived in their system. Why?"* See [the setup guide](docs/guides/claude-mcp-setup.md) for Claude Desktop and more examples.
+
+Or ask the project's own agent from the terminal (needs `ANTHROPIC_API_KEY` in `.env`):
+
+```bash
+make mcp-http          # in another terminal
+uv run sra ask "The specialist says GR-11854 never arrived in their system. Why?"
+```
 
 ## Evaluation results
 

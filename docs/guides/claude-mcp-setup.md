@@ -81,6 +81,14 @@ curl -s http://127.0.0.1:8765/healthz           # {"status": "ok"}, needs no tok
 
 Clients send `Authorization: Bearer <MCP_HTTP_TOKEN>` with every request; without it the server answers `401`. The HTTP transport is stateless and answers with plain JSON.
 
+The project agent is one such client. With the server running and `ANTHROPIC_API_KEY` in `.env`:
+
+```bash
+uv run sra ask "The specialist says GR-11854 never arrived in their system. Why?"
+```
+
+The answer goes to stdout, and a trace of each model turn and tool call to stderr. `--json` prints the whole run (answer, tool calls, tokens, timings and transcript); `uv run sra ask --help` lists the overrides.
+
 ## 5. Try it
 
 These referrals exist in the default seed (`make seed` with no options). Ask Claude as a CS person would:
@@ -113,5 +121,7 @@ uv run sim case F00_NO_FAULT --distractor recovered_pms_auth
 | `permission denied for table patient_snapshot` | Expected: the server's role cannot read patient values. If a tool hits this, it is a bug |
 | `sr-mcp: HTTP needs MCP_HTTP_TOKEN` | Add `MCP_HTTP_TOKEN` (32+ characters) to `.env` |
 | `401` over HTTP | The client must send `Authorization: Bearer <MCP_HTTP_TOKEN>` |
+| `sra: no model API credentials` | Add `ANTHROPIC_API_KEY` to `.env` |
+| `sra: cannot reach the MCP server` | Start it in another terminal: `make mcp-http` |
 | `search_logs` finds nothing | Run `make seed`; it writes `var/logs/`. The server reloads logs after a re-seed |
 | Tools answer about different referrals than these examples | The data was seeded with other options. Re-run `make seed` with the defaults |
