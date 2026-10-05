@@ -658,6 +658,33 @@ Purpose: measure every change from the first agent onwards and catch regressions
   - no patient identifiers: the world's own patient names, NHIs and dates of birth, plus the masking patterns;
   - escalation.
 
+**Runner and reports (T3.4)**
+
+- **`uv run sr-evals run`** runs the agent over the dataset.
+  - **Options:** `--cases all|smoke|F07-1,…`, `--model`, `--effort`, `--no-rag`, `--concurrency 4`.
+  - **Before it starts,** it checks that the seeded world (`var/sim/labels.json`) is the dataset's world.
+  - **During the run:**
+    - All cases share one MCP connection, with up to four cases at a time.
+    - A failure of the model API or the MCP server becomes an `error` score for that case alone.
+- **Reports** are written to `packages/evals/reports/<UTC time>-<model>[-label].json` and `.md`.
+  - **Each report holds:**
+    - accuracy overall, on clean and distractor cases, per code, per distractor and per way of naming the referral;
+    - the answer checks;
+    - p50 and p95 latency, tool calls and tokens per case;
+    - estimated cost (`sr_agent.pricing`, list prices);
+    - outcomes, the models that served each turn, and a confusion list of wrong answers.
+  - **Comparison:** each report is compared with the latest earlier report for the same dataset version and case set, including which cases became right or wrong.
+  - **Full runs,** transcripts included, go to `var/evals/runs/<report id>/`, which is git-ignored.
+- **`--dry-run`** replaces the model with an oracle that reads the answer key.
+  - **What it does:**
+    - It calls the same six tools a careful agent would, then cites the expected live records.
+    - It must score 100%: anything less is a pipeline bug, not a model error.
+    - An integration test runs it over all 75 cases through the real database and HTTP server.
+  - **Where its reports go:** `var/evals/reports/`, so they never enter the run-to-run comparison.
+- **Smoke set:** one clean case per code (`F00-1` … `F11-1`).
+  - **When it runs:** `.github/workflows/eval.yml` runs it on a manual trigger or a push to `main`, never on pull requests, so no fork can reach the API key.
+  - **Without the `ANTHROPIC_API_KEY` secret,** it runs the oracle dry run instead.
+
 Acceptance: one command runs the full set and writes a report; the README shows the latest headline numbers.
 
 ### 7.6 CS console (`packages/web`)

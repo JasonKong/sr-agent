@@ -147,3 +147,26 @@ async def connect_http(
         open_toolbox(Client(streamable_http_client(url, http_client=http)), url=url) as toolbox,
     ):
         yield toolbox
+
+
+class _Without:
+    def __init__(self, inner: Toolbox, hidden: set[str]) -> None:
+        self._inner = inner
+        self._hidden = hidden
+
+    @property
+    def instructions(self) -> str:
+        return self._inner.instructions
+
+    def specs(self) -> list[dict[str, Any]]:
+        return [s for s in self._inner.specs() if s["name"] not in self._hidden]
+
+    async def call(self, name: str, arguments: dict[str, Any]) -> ToolOutcome:
+        if name in self._hidden:
+            return ToolOutcome(text=f"Tool {name} is not available.", is_error=True)
+        return await self._inner.call(name, arguments)
+
+
+def without(toolbox: Toolbox, hidden: set[str]) -> Toolbox:
+    """The same tools minus `hidden`, for ablations such as an eval run without RAG."""
+    return _Without(toolbox, hidden)
