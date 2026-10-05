@@ -14,7 +14,7 @@ SR-Agent is a learning project for **MCP**, **RAG** and **agents**. It runs enti
 
 ## Status
 
-🚧 M0–M3 code is complete: the simulated world, the MCP server (10 read-only tools including hybrid knowledge search, runbook resources, a diagnosis prompt, stdio and HTTP), the agent (`sra ask`) and the evaluation harness (`sr-evals`). M4 (RAG) is in progress; the first model-graded numbers need an API key. See the [implementation plan](docs/DESIGN.md#10-implementation-plan-for-claude-code).
+🚧 M0–M5 code is complete: the simulated world; the MCP server (10 read-only tools including hybrid knowledge search, runbook resources, a diagnosis prompt, stdio and HTTP); the agent (`sra ask`, and an HTTP API with audit, cost tracking and safety checks); and the evaluation harness (`sr-evals`, retrieval experiments). M6 (the CS console) is in progress; the first model-graded numbers need an API key. See the [implementation plan](docs/DESIGN.md#10-implementation-plan-for-claude-code).
 
 | Milestone | Scope | State |
 | --- | --- | --- |
@@ -22,8 +22,8 @@ SR-Agent is a learning project for **MCP**, **RAG** and **agents**. It runs enti
 | M1 | Simulator: two systems, four legs, failures, distractors, tickets and runbooks | ✅ Done |
 | M2 | MCP server | ✅ Done |
 | M3 | Baseline agent and evaluation | 🚧 Code done; baseline run pending |
-| M4 | RAG over tickets and runbooks | 🚧 In progress |
-| M5 | Agent hardening | — |
+| M4 | RAG over tickets and runbooks | 🚧 Code done; agent ablation pending |
+| M5 | Agent hardening | 🚧 Code done; final eval pending |
 | M6 | CS web console | — |
 | M7 | Optional AWS deployment | — |
 
@@ -71,6 +71,6 @@ No results yet; the first numbers arrive with M3.
 
 - [Design document](docs/DESIGN.md)
 - [Architecture decision records](docs/adr/README.md)
-- Learning notes: [M0 foundation](docs/learning/m0-foundation.md), [M1 simulator](docs/learning/m1-simulator.md), [M2 MCP server](docs/learning/m2-mcp-server.md), [M3 agent and evaluation](docs/learning/m3-agent-and-evals.md), [M4 RAG](docs/learning/m4-rag.md)
+- Learning notes: [M0 foundation](docs/learning/m0-foundation.md), [M1 simulator](docs/learning/m1-simulator.md), [M2 MCP server](docs/learning/m2-mcp-server.md), [M3 agent and evaluation](docs/learning/m3-agent-and-evals.md), [M4 RAG](docs/learning/m4-rag.md), [M5 agent hardening](docs/learning/m5-agent-hardening.md)
 
 All people, practices, clinics and vendors in this repository are fictional.
