@@ -3,9 +3,10 @@
 import asyncio
 import re
 
+import pytest
 from mcp import Client
 
-from sr_agent.prompts import PROMPT_VERSION, build_system_prompt
+from sr_agent.prompts import PROMPT_VERSION, PROMPT_VERSIONS, build_system_prompt
 from sr_db.domain import FailureCode
 from sr_mcp.server import INSTRUCTIONS, create_server
 from sr_mcp.testing import fake_deps
@@ -53,3 +54,19 @@ def test_the_knowledge_step_appears_only_with_the_knowledge_tools() -> None:
     assert "context, never evidence" in with_rag
     assert "search_knowledge" not in without_rag
     assert "get_runbook" not in without_rag
+
+
+def test_prompt_v2_adds_decision_rules_to_v1() -> None:
+    v1 = build_system_prompt(INSTRUCTIONS, server_tool_names(), version="v1")
+    v2 = build_system_prompt(INSTRUCTIONS, server_tool_names(), version="v2")
+
+    assert v1 == build_system_prompt(INSTRUCTIONS, server_tool_names())
+    for rule in ("7 days", "24 hours", "token_expires_at", "as_of"):
+        assert rule in v2
+        assert rule not in v1
+    assert set(PROMPT_VERSIONS) == {"v1", "v2"}
+
+
+def test_an_unknown_prompt_version_is_refused() -> None:
+    with pytest.raises(ValueError, match="v9"):
+        build_system_prompt(INSTRUCTIONS, version="v9")

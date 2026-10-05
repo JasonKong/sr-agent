@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 from sr_agent.loop import DEFAULT_LIMITS, AgentEvent, AgentRun, Limits, run_agent
 from sr_agent.model import ModelClient, ModelUnavailable
+from sr_agent.prompts import PROMPT_VERSION
 from sr_agent.toolbox import Toolbox, ToolsUnavailable
 from sr_evals.dataset import EvalCase
 
@@ -31,6 +32,7 @@ async def run_cases(
     limits: Limits = DEFAULT_LIMITS,
     concurrency: int = 4,
     on_case: Callable[[CaseResult], None] | None = None,
+    prompt_version: str = PROMPT_VERSION,
 ) -> list[CaseResult]:
     """Results in the order of `cases`. `on_case` sees each result as it finishes."""
     gate = asyncio.Semaphore(concurrency)
@@ -44,6 +46,7 @@ async def run_cases(
                     toolbox=toolbox,
                     limits=limits,
                     observe=_quiet,
+                    prompt_version=prompt_version,
                 )
                 result = CaseResult(case, run, None)
             except (ModelUnavailable, ToolsUnavailable) as error:

@@ -20,6 +20,7 @@ class AgentSettings(BaseSettings):
 
     model: str = "claude-opus-5-5"
     effort: Effort = "medium"
+    prompt: str = "v1"  # system prompt version (sr_agent.prompts.PROMPT_VERSIONS)
     # Retry a classifier refusal on another model in the same call ("off" to disable).
     fallback: Literal["default", "off"] = "default"
     mcp_url: str = "http://127.0.0.1:8765/mcp"

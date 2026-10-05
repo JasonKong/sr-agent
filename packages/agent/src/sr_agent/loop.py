@@ -225,11 +225,14 @@ async def run_agent(
     limits: Limits = DEFAULT_LIMITS,
     observe: Observer = json_log,
     clock: Callable[[], float] = time.monotonic,
+    prompt_version: str = PROMPT_VERSION,
 ) -> AgentRun:
     run_id = uuid.uuid4().hex[:12]
     started = clock()
     tools = toolbox.specs()
-    system = build_system_prompt(toolbox.instructions, {t["name"] for t in tools})
+    system = build_system_prompt(
+        toolbox.instructions, {t["name"] for t in tools}, version=prompt_version
+    )
     schema = model_output_schema()
     messages: list[Message] = [{"role": "user", "content": question}]
     usage = TokenUsage()
@@ -248,7 +251,7 @@ async def run_agent(
             outcome=outcome,
             model=model.name,
             served_by=served_by,
-            prompt_version=PROMPT_VERSION,
+            prompt_version=prompt_version,
             turns=len(served_by),
             repairs=repairs,
             dropped_evidence=dropped,

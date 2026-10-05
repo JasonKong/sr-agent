@@ -681,6 +681,22 @@ Purpose: turn a CS question into a verified, plain-English diagnosis.
 | A failing answer | One repair turn that names the problems (invalid JSON, schema fields, unseen ids). If ids still do not resolve, they are removed from the diagnosis and listed in `dropped_evidence`; if the answer still does not fit the schema, the outcome is `invalid_output` | The answer shown to CS only cites real records, and the run record shows how often the model needed correcting |
 | On reaching a limit | One wrap-up turn: tool calls the limit stopped get an `is_error` "not run" result, then `tool_choice: none` and an instruction to answer from the evidence so far. The run keeps the limit as its outcome, so it is marked incomplete, with whatever partial diagnosis came back. The wrap-up has its own time allowance (`wrap_up_s`, 20 s) | Every `tool_use` needs a `tool_result`; the tool list itself never changes, so the history stays valid |
 
+**Prompt and tool-description variants (T5.1)**
+
+- **Prompt versions** live in `sr_agent.prompts.PROMPT_VERSIONS` and are chosen with `SRA_PROMPT`, `sra ask --prompt` or `sr-evals run --prompt`. Every run and report records which.
+  - `v1` is the baseline.
+  - `v2` adds explicit decision rules from the scenario catalogue (section 3.4), where v1 leaves the thresholds and comparisons to the model:
+    - "now" is `as_of`;
+    - F10 needs more than 7 days without action;
+    - less than 24 hours not opened is F00;
+    - a 401 then `TOKEN_REFRESHED` and success is F00;
+    - an expired integration explains a referral only if the push came after `token_expires_at`;
+    - a failed hand-off then a successful resend is F00;
+    - `MANUAL` with no deliveries is F06;
+    - check the return path before "never replied".
+- **v2 is a hypothesis until the evaluation compares the two** on the same cases (`sr-evals run --prompt v2` against v1). Whichever wins on the dataset, look for the change that generalises, not the one that fits the 75 cases.
+- **Tool descriptions:** `sr-evals run --tool-descriptions v2` swaps the server's detailed descriptions for one-line ones (`sr_agent.toolbox.MINIMAL_DESCRIPTIONS`), keeping the schemas. It measures what the descriptions written in M2 are worth.
+
 Acceptance:
 - Each scenario is diagnosed correctly in a live local run.
 - Schema validation never fails silently.

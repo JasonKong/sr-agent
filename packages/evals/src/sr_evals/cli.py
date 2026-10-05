@@ -24,9 +24,16 @@ from typing import get_args
 from sr_agent.anthropic_model import AnthropicModel
 from sr_agent.loop import Limits
 from sr_agent.model import Effort, ModelClient, ModelUnavailable
-from sr_agent.prompts import PROMPT_VERSION
+from sr_agent.prompts import PROMPT_VERSIONS
 from sr_agent.settings import AgentSettings
-from sr_agent.toolbox import Toolbox, ToolsUnavailable, connect_http, without
+from sr_agent.toolbox import (
+    MINIMAL_DESCRIPTIONS,
+    Toolbox,
+    ToolsUnavailable,
+    connect_http,
+    with_descriptions,
+    without,
+)
 from sr_db.domain import FailureCode
 from sr_evals.dataset import (
     DATASET_V1,
@@ -162,12 +169,15 @@ def _run(args: argparse.Namespace, connect: Connect) -> int:
             flush=True,
         )
 
+    prompt = args.prompt or settings.prompt
     url = args.mcp_url or settings.mcp_url
     token = settings.mcp_token.get_secret_value()
 
     async def evaluate() -> list[CaseResult]:
         async with connect(url, token) as toolbox:
             tools = without(toolbox, RAG_TOOLS) if args.no_rag else toolbox
+            if args.tool_descriptions == "v2":
+                tools = with_descriptions(tools, MINIMAL_DESCRIPTIONS)
             return await run_cases(
                 cases,
                 model_for=model_for,
@@ -175,6 +185,7 @@ def _run(args: argparse.Namespace, connect: Connect) -> int:
                 limits=limits,
                 concurrency=args.concurrency,
                 on_case=progress,
+                prompt_version=prompt,
             )
 
     try:
@@ -196,10 +207,11 @@ def _run(args: argparse.Namespace, connect: Connect) -> int:
         case_set=args.cases,
         model=model_name,
         effort=effort,
-        prompt_version=PROMPT_VERSION,
+        prompt_version=prompt,
         flags={
             "dry_run": args.dry_run,
             "no_rag": args.no_rag,
+            "tool_descriptions": args.tool_descriptions,
             "max_tool_calls": limits.max_tool_calls,
             "time_limit_s": limits.time_limit_s,
             "concurrency": args.concurrency,
@@ -272,6 +284,13 @@ def main(argv: list[str] | None = None, *, connect: Connect = connect_http) -> i
     run.add_argument("--model", help="model id (default SRA_MODEL or claude-opus-5-5)")
     run.add_argument("--effort", choices=get_args(Effort), help="default SRA_EFFORT or medium")
     run.add_argument("--no-rag", action="store_true", help="hide the knowledge tools (ablation)")
+    run.add_argument("--prompt", choices=sorted(PROMPT_VERSIONS), help="default SRA_PROMPT or v1")
+    run.add_argument(
+        "--tool-descriptions",
+        choices=["v1", "v2"],
+        default="v1",
+        help="v1: the server's descriptions; v2: one-line descriptions (ablation)",
+    )
     run.add_argument("--concurrency", type=int, default=4)
     run.add_argument("--max-tool-calls", type=int)
     run.add_argument("--time-limit", type=float, help="seconds per case")

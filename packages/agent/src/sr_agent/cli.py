@@ -34,6 +34,7 @@ from sr_agent.loop import (
     run_agent,
 )
 from sr_agent.model import Effort, ModelClient, ModelUnavailable, TokenUsage
+from sr_agent.prompts import PROMPT_VERSIONS
 from sr_agent.settings import AgentSettings
 from sr_agent.toolbox import Toolbox, ToolsUnavailable, connect_http
 
@@ -109,6 +110,7 @@ def _parser() -> argparse.ArgumentParser:
     ask.add_argument("--model", help="model id (default SRA_MODEL or claude-opus-5-5)")
     ask.add_argument("--effort", choices=get_args(Effort), help="default SRA_EFFORT or medium")
     ask.add_argument("--mcp-url", help="default SRA_MCP_URL or http://127.0.0.1:8765/mcp")
+    ask.add_argument("--prompt", choices=sorted(PROMPT_VERSIONS), help="default SRA_PROMPT or v1")
     ask.add_argument("--max-tool-calls", type=int, help="default SRA_MAX_TOOL_CALLS or 8")
     ask.add_argument("--time-limit", type=float, help="seconds; default SRA_TIME_LIMIT_S or 60")
     ask.add_argument("--json", action="store_true", help="print the whole run as JSON")
@@ -157,7 +159,12 @@ def main(
     async def ask() -> AgentRun:
         async with connect(url, token) as toolbox:
             return await run_agent(
-                args.question, model=model, toolbox=toolbox, limits=limits, observe=observe
+                args.question,
+                model=model,
+                toolbox=toolbox,
+                limits=limits,
+                observe=observe,
+                prompt_version=args.prompt or settings.prompt,
             )
 
     try:

@@ -394,3 +394,11 @@ def test_the_prompt_follows_the_tools_the_run_has() -> None:
     )
     run(model, tools)
     assert "search_knowledge" in model.requests[0].system
+
+
+def test_the_run_records_the_prompt_version_it_used() -> None:
+    model = FakeModel(answer())
+    result = run(model, toolbox(), prompt_version="v2")
+
+    assert result.prompt_version == "v2"
+    assert "7 days" in model.requests[0].system
