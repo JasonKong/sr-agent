@@ -381,3 +381,16 @@ def test_ids_in_tool_errors_are_not_evidence() -> None:
     result = run(model, tools)
 
     assert result.dropped_evidence == ["GR-99999"]
+
+
+def test_the_prompt_follows_the_tools_the_run_has() -> None:
+    model = FakeModel(answer())
+    tools = FakeToolbox(
+        {
+            "get_referral": lambda args: ToolOutcome(text="{}"),
+            "search_knowledge": lambda args: ToolOutcome(text="{}"),
+            "get_runbook": lambda args: ToolOutcome(text="{}"),
+        }
+    )
+    run(model, tools)
+    assert "search_knowledge" in model.requests[0].system

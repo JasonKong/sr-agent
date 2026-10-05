@@ -12,6 +12,7 @@ from sr_mcp.adapters.postgres import PostgresReferralStore
 from sr_mcp.adapters.postgres_knowledge import PostgresKnowledge
 from sr_mcp.deps import Deps
 from sr_mcp.http import MIN_TOKEN_LENGTH, build_app
+from sr_mcp.knowledge.embedder import make_embedder
 from sr_mcp.paths import project_root, resolve
 from sr_mcp.server import create_server
 from sr_mcp.settings import McpSettings
@@ -38,7 +39,8 @@ def main(argv: list[str] | None = None) -> int:
 
     url = str(settings.database_url)
     store = PostgresReferralStore(url, mask_salt=settings.mask_salt.get_secret_value())
-    knowledge = PostgresKnowledge(url)
+    embedder = make_embedder(settings.embedder, cache_dir=resolve(settings.model_dir, root))
+    knowledge = PostgresKnowledge(url, embedder=embedder)
     deps = Deps(
         store=store,
         logs=JsonlLogSource(resolve(settings.log_dir, root)),

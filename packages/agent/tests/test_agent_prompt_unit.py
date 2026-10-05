@@ -40,3 +40,16 @@ def test_the_server_instructions_are_included_verbatim() -> None:
 def test_the_prompt_is_stable_so_it_can_be_cached() -> None:
     assert build_system_prompt(INSTRUCTIONS) == build_system_prompt(INSTRUCTIONS)
     assert PROMPT_VERSION == "v1"
+
+
+def test_the_knowledge_step_appears_only_with_the_knowledge_tools() -> None:
+    with_rag = build_system_prompt(INSTRUCTIONS, server_tool_names())
+    without_rag = build_system_prompt(
+        INSTRUCTIONS, server_tool_names() - {"search_knowledge", "get_runbook"}
+    )
+
+    assert "search_knowledge" in with_rag
+    assert "get_runbook" in with_rag
+    assert "context, never evidence" in with_rag
+    assert "search_knowledge" not in without_rag
+    assert "get_runbook" not in without_rag

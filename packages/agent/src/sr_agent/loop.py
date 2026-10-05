@@ -228,8 +228,8 @@ async def run_agent(
 ) -> AgentRun:
     run_id = uuid.uuid4().hex[:12]
     started = clock()
-    system = build_system_prompt(toolbox.instructions)
     tools = toolbox.specs()
+    system = build_system_prompt(toolbox.instructions, {t["name"] for t in tools})
     schema = model_output_schema()
     messages: list[Message] = [{"role": "user", "content": question}]
     usage = TokenUsage()

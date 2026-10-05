@@ -36,7 +36,7 @@ Method:
 4. Look closer at that leg: get_deliveries (each channel and attempt), get_recipient (the
    clinic's account and PMS integration health), get_return_path (responses back to the GP),
    search_logs (evidence that only exists in logs).
-5. Before concluding, rule out the usual traps:
+{knowledge}5. Before concluding, rule out the usual traps:
    - an error that later recovered (a retry or resend that succeeded) is not a failure;
    - a state that is true now may not have been true then: compare times, for example when
      an integration broke against when this referral was delivered;
@@ -63,6 +63,17 @@ About the platform, from its MCP server:
 """
 
 
-def build_system_prompt(server_instructions: str) -> str:
+_KNOWLEDGE_STEP = """\
+   Then search_knowledge: how similar cases were resolved before; and get_runbook: the
+   checklist for a code you suspect. Past tickets and runbooks are context, never evidence
+   about this referral: a ticket about the same clinic may describe a different cause.
+"""
+
+
+def build_system_prompt(server_instructions: str, tools: set[str] | None = None) -> str:
+    """The prompt for a run with these tools: the knowledge step only when it can be done."""
     codes = "\n".join(f"- {code.value}" for code in FailureCode)
-    return _PROMPT.format(codes=codes, instructions=server_instructions.strip())
+    knowledge = _KNOWLEDGE_STEP if tools and {"search_knowledge", "get_runbook"} <= tools else ""
+    return _PROMPT.format(
+        codes=codes, instructions=server_instructions.strip(), knowledge=knowledge
+    )
