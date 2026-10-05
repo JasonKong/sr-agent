@@ -12,6 +12,7 @@ make db-up       # start Postgres 16 + pgvector (needs .env: cp .env.example .en
 make migrate     # apply SQL migrations (uv run sr-db migrate); make db-reset wipes local data
 make seed        # replace simulator data with the default world (uv run sim seed --help)
 make db-roles    # create the MCP server's read-only login (from MCP_DATABASE_URL)
+make ingest      # chunk, mask and embed tickets and runbooks into knowledge_chunk (uv run sr-ingest)
 make mcp         # run the MCP server over stdio (Claude Code uses .mcp.json; see docs/guides/claude-mcp-setup.md)
 make mcp-http    # the MCP server over HTTP on 127.0.0.1:8765, for the agent (needs MCP_HTTP_TOKEN)
 uv run sra ask "Why didn't the specialist get GR-11854?"  # the agent; needs make mcp-http and ANTHROPIC_API_KEY

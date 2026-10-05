@@ -27,6 +27,7 @@ from sr_db.domain import (
     HubFileKind,
     HubReferralStatus,
     InboxFilingStatus,
+    KnowledgeSource,
     RecipientActionType,
     ReferralStatus,
     ResponseType,
@@ -103,6 +104,12 @@ VALUES ('tkt_1', 'GR-10001', 'cln_1', 'Specialist says not received', 'GP called
 INSERT INTO knowledge.runbook (id, slug, error_code, title, body_markdown, updated_at)
 VALUES ('rb_1', 'clinic-pms-auth-failed', 'F07_CLINIC_PMS_AUTH_FAILED',
     'Clinic PMS authorisation failed', '# Steps', '2026-08-01T00:00:00Z');
+INSERT INTO knowledge.knowledge_chunk (
+    id, source_type, source_id, chunk_no, error_code, title, text, metadata, content_hash,
+    embedder, embedding, ingested_at)
+VALUES ('rb_1#0', 'RUNBOOK', 'rb_1', 0, 'F07_CLINIC_PMS_AUTH_FAILED',
+    'Clinic PMS authorisation failed', 'Steps', '{}', 'h', 'hash-384',
+    array_fill(0.1, ARRAY[384])::vector, '2026-08-02T00:00:00Z');
 """
 
 # Every column restricted by a CHECK (... IN ...) list, and the enum that defines its values.
@@ -132,6 +139,8 @@ ENUM_COLUMNS: list[tuple[str, str, type[StrEnum]]] = [
     ("hub.return_callback", "status", CallbackStatus),
     ("knowledge.support_ticket", "root_cause_code", FailureCode),
     ("knowledge.runbook", "error_code", FailureCode),
+    ("knowledge.knowledge_chunk", "source_type", KnowledgeSource),
+    ("knowledge.knowledge_chunk", "error_code", FailureCode),
 ]
 
 
