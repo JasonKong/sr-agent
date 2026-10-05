@@ -23,6 +23,8 @@ class AgentSettings(BaseSettings):
     prompt: str = "v1"  # system prompt version (sr_agent.prompts.PROMPT_VERSIONS)
     # Retry a classifier refusal on another model in the same call ("off" to disable).
     fallback: Literal["default", "off"] = "default"
+    # "summarized" returns readable summaries of the model's thinking, at the same cost.
+    thinking_display: Literal["omitted", "summarized"] = "omitted"
     mcp_url: str = "http://127.0.0.1:8765/mcp"
     mcp_token: SecretStr | None = Field(default=None, validation_alias="MCP_HTTP_TOKEN")
     anthropic_api_key: SecretStr | None = Field(default=None, validation_alias="ANTHROPIC_API_KEY")

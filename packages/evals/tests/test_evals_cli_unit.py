@@ -108,3 +108,55 @@ def test_the_prompt_and_tool_descriptions_are_recorded(labels: Path, tmp_path: P
     assert report.flags["tool_descriptions"] == "v2"
     [run] = list((tmp_path / "runs").glob("*/F07-1.json"))
     assert '"prompt_version": "v2"' in run.read_text()
+
+
+def test_the_model_settings_and_cost_cap_are_recorded(labels: Path, tmp_path: Path) -> None:
+    argv = ["run", "--dry-run", "--cases", "F07-1", "--labels", str(labels)]
+    argv += ["--reports-dir", str(tmp_path / "r"), "--runs-dir", str(tmp_path / "runs")]
+    argv += ["--max-cost-usd", "2.5"]
+    assert main(argv, connect=in_process) == 0
+
+    [path] = list((tmp_path / "r").glob("*.json"))
+    flags = EvalReport.model_validate_json(path.read_text()).flags
+    assert flags["max_cost_usd"] == 2.5
+    assert flags["fallback"] is False  # the oracle is no model
+    assert flags["thinking"] == "n/a"
+
+
+@asynccontextmanager
+async def must_not_connect(url: str, token: str) -> AsyncIterator[McpToolbox]:
+    raise AssertionError("connected before checking the model settings")
+    yield  # pragma: no cover
+
+
+@pytest.mark.parametrize(
+    ("extra", "message"),
+    [
+        (["--model", "claude-haiku-4-5", "--effort", "low"], "has no effort levels"),
+        (["--model", "claude-typo"], "no request profile"),
+    ],
+)
+def test_bad_model_settings_stop_before_connecting(
+    extra: list[str],
+    message: str,
+    labels: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    code = main(["run", "--labels", str(labels), *extra], connect=must_not_connect)
+
+    assert code == 2
+    assert message in capsys.readouterr().err
+
+
+def test_the_cost_cap_reaches_the_runner(labels: Path, tmp_path: Path) -> None:
+    # A cap of $0 is reached before the first case, so nothing runs.
+    argv = ["run", "--dry-run", "--cases", "F07-1,F06-1", "--labels", str(labels)]
+    argv += ["--reports-dir", str(tmp_path / "r"), "--runs-dir", str(tmp_path / "runs")]
+    assert main([*argv, "--max-cost-usd", "0"], connect=in_process) == 0
+
+    [path] = list((tmp_path / "r").glob("*.json"))
+    report = EvalReport.model_validate_json(path.read_text())
+    assert report.metrics.errors == 2
+    assert {s.error for s in report.scores} == {"not run: the cost cap of $0.00 was reached"}

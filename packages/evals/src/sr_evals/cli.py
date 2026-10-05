@@ -21,7 +21,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import get_args
 
-from sr_agent.anthropic_model import AnthropicModel
+from sr_agent.anthropic_model import model_from_settings
 from sr_agent.api import create_app
 from sr_agent.audit import MemoryAudit
 from sr_agent.loop import Limits
@@ -118,27 +118,29 @@ def _run(args: argparse.Namespace, connect: Connect) -> int:
     world = world_for(dataset)
     index = WorldIndex.of(world)
     clinic_of = {r.id: r.recipient_clinic_ref for r in world.referrals}
-    effort: Effort = args.effort or settings.effort
     if args.dry_run:
         model_name = OracleModel.name
+        effort_label: str = args.effort or settings.effort
+        fallback, thinking = False, "n/a"
 
         def model_for(case: EvalCase) -> ModelClient:
             return OracleModel(case, clinic_of[case.composer_id])
 
     else:
-        key = settings.anthropic_api_key
         try:
-            shared = AnthropicModel(
-                model=args.model or settings.model,
-                effort=effort,
-                fallback=settings.fallback == "default",
-                api_key=key.get_secret_value() if key else None,
-                timeout_s=args.time_limit or settings.time_limit_s,
+            shared = model_from_settings(
+                settings,
+                model=args.model,
+                effort=args.effort,
+                timeout_s=args.time_limit,
+                thinking_display=args.thinking_display,
             )
         except ModelUnavailable as error:
             print(f"sr-evals: {error}", file=sys.stderr)
             return 2
         model_name = shared.name
+        effort_label = shared.effort or "n/a"
+        fallback, thinking = shared.fallback, shared.thinking
 
         def model_for(case: EvalCase) -> ModelClient:
             return shared
@@ -177,6 +179,7 @@ def _run(args: argparse.Namespace, connect: Connect) -> int:
                 concurrency=args.concurrency,
                 on_case=progress,
                 prompt_version=prompt,
+                max_cost_usd=args.max_cost_usd,
             )
 
     try:
@@ -197,7 +200,7 @@ def _run(args: argparse.Namespace, connect: Connect) -> int:
         dataset_version=dataset.version,
         case_set=args.cases,
         model=model_name,
-        effort=effort,
+        effort=effort_label,
         prompt_version=prompt,
         flags={
             "dry_run": args.dry_run,
@@ -206,6 +209,9 @@ def _run(args: argparse.Namespace, connect: Connect) -> int:
             "max_tool_calls": limits.max_tool_calls,
             "time_limit_s": limits.time_limit_s,
             "concurrency": args.concurrency,
+            "fallback": fallback,
+            "thinking": thinking,
+            "max_cost_usd": args.max_cost_usd,
         },
         git_commit=_git_commit(),
         duration_s=round(time.perf_counter() - started, 1),
@@ -320,6 +326,16 @@ def main(argv: list[str] | None = None, *, connect: Connect = connect_http) -> i
     run.add_argument("--dry-run", action="store_true", help="an oracle that reads the answer key")
     run.add_argument("--model", help="model id (default SRA_MODEL or claude-opus-5-5)")
     run.add_argument("--effort", choices=get_args(Effort), help="default SRA_EFFORT or medium")
+    run.add_argument(
+        "--thinking-display",
+        choices=["omitted", "summarized"],
+        help="default SRA_THINKING_DISPLAY or omitted; summarized thinking costs the same",
+    )
+    run.add_argument(
+        "--max-cost-usd",
+        type=float,
+        help="stop starting cases once the finished ones cost this much (estimated, list prices)",
+    )
     run.add_argument("--no-rag", action="store_true", help="hide the knowledge tools (ablation)")
     run.add_argument("--prompt", choices=sorted(PROMPT_VERSIONS), help="default SRA_PROMPT or v1")
     run.add_argument(

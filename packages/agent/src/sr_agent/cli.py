@@ -21,7 +21,7 @@ from typing import TextIO, get_args
 
 from pydantic import ValidationError
 
-from sr_agent.anthropic_model import AnthropicModel
+from sr_agent.anthropic_model import model_from_settings
 from sr_agent.api import create_app
 from sr_agent.audit import AuditStore, MemoryAudit, PostgresAudit
 from sr_agent.diagnosis import Diagnosis
@@ -113,6 +113,11 @@ def _parser() -> argparse.ArgumentParser:
     ask.add_argument("question")
     ask.add_argument("--model", help="model id (default SRA_MODEL or claude-opus-5-5)")
     ask.add_argument("--effort", choices=get_args(Effort), help="default SRA_EFFORT or medium")
+    ask.add_argument(
+        "--thinking-display",
+        choices=["omitted", "summarized"],
+        help="default SRA_THINKING_DISPLAY or omitted; summarized thinking costs the same",
+    )
     ask.add_argument("--mcp-url", help="default SRA_MCP_URL or http://127.0.0.1:8765/mcp")
     ask.add_argument("--prompt", choices=sorted(PROMPT_VERSIONS), help="default SRA_PROMPT or v1")
     ask.add_argument("--max-tool-calls", type=int, help="default SRA_MAX_TOOL_CALLS or 8")
@@ -132,15 +137,8 @@ def _serve(args: argparse.Namespace, settings: AgentSettings) -> int:
     if settings.mcp_token is None:
         print("sra: set MCP_HTTP_TOKEN (the MCP server's bearer token) in .env", file=sys.stderr)
         return 2
-    key = settings.anthropic_api_key
     try:
-        model = AnthropicModel(
-            model=settings.model,
-            effort=settings.effort,
-            fallback=settings.fallback == "default",
-            api_key=key.get_secret_value() if key else None,
-            timeout_s=settings.time_limit_s,
-        )
+        model = model_from_settings(settings)
     except ModelUnavailable as error:
         print(f"sra: {error}", file=sys.stderr)
         return 2
@@ -209,14 +207,13 @@ def main(
         return 2
 
     if model is None:
-        key = settings.anthropic_api_key
         try:
-            model = AnthropicModel(
-                model=args.model or settings.model,
-                effort=args.effort or settings.effort,
-                fallback=settings.fallback == "default",
-                api_key=key.get_secret_value() if key else None,
-                timeout_s=args.time_limit or settings.time_limit_s,
+            model = model_from_settings(
+                settings,
+                model=args.model,
+                effort=args.effort,
+                timeout_s=args.time_limit,
+                thinking_display=args.thinking_display,
             )
         except ModelUnavailable as error:
             print(f"sra: {error}", file=sys.stderr)
