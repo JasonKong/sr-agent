@@ -3,37 +3,20 @@
 Each test gets its own throwaway database, so tests never touch the development data.
 """
 
-import uuid
 from collections.abc import Iterator
-from urllib.parse import urlsplit
 
 import psycopg
 import pytest
 from psycopg import sql
 
 from sr_db.migrate import MIGRATIONS_DIR, migrate
+from sr_db.scratch import create_database, drop_database
+from sr_db.scratch import database_url as url_for
 from sr_db.settings import DatabaseSettings
 
-
-def _create(admin_url: str, template: str | None = None) -> str:
-    name = f"sr_test_{uuid.uuid4().hex[:12]}"
-    statement = sql.SQL("CREATE DATABASE {}").format(sql.Identifier(name))
-    if template is not None:
-        statement = sql.SQL("{} TEMPLATE {}").format(statement, sql.Identifier(template))
-    with psycopg.connect(admin_url, autocommit=True) as admin:
-        admin.execute(statement)
-    return name
-
-
-def _drop(admin_url: str, name: str) -> None:
-    with psycopg.connect(admin_url, autocommit=True) as admin:
-        admin.execute(
-            sql.SQL("DROP DATABASE IF EXISTS {} WITH (FORCE)").format(sql.Identifier(name))
-        )
-
-
-def _url(admin_url: str, name: str) -> str:
-    return urlsplit(admin_url)._replace(path=f"/{name}").geturl()
+_create = create_database
+_drop = drop_database
+_url = url_for
 
 
 @pytest.fixture
