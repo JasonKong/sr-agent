@@ -195,12 +195,7 @@ def model_from_settings(
     argument or by SRA_EFFORT, is refused rather than silently ignored.
     """
     name = model or settings.model
-    profile = profile_for(name)
-    chosen: Effort | None
-    if profile.effort:
-        chosen = effort or settings.effort
-    else:
-        chosen = effort or (settings.effort if "effort" in settings.model_fields_set else None)
+    chosen = resolve_effort(settings, name, effort)
     key = settings.anthropic_api_key
     return AnthropicModel(
         model=name,
@@ -210,3 +205,16 @@ def model_from_settings(
         timeout_s=timeout_s or settings.time_limit_s,
         thinking_display=thinking_display or settings.thinking_display,
     )
+
+
+def resolve_effort(settings: AgentSettings, model: str, effort: Effort | None) -> Effort | None:
+    """The effort a run of `model` will send: the argument, else SRA_EFFORT or its default.
+
+    A model without effort levels gets none; one asked for explicitly is refused.
+    """
+    if profile_for(model).effort:
+        return effort or settings.effort
+    asked = effort or (settings.effort if "effort" in settings.model_fields_set else None)
+    if asked is not None:
+        raise ModelUnavailable(f"{model} has no effort levels: leave out --effort and SRA_EFFORT")
+    return None

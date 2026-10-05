@@ -21,6 +21,7 @@ make api         # the agent's HTTP API on 127.0.0.1:8766 for the console (uv ru
 uv run sim case F07_CLINIC_PMS_AUTH_FAILED  # one labelled case with its evidence ids (no DB needed)
 uv run sim case F00_NO_FAULT --distractor recovered_pms_auth  # a case with a distractor
 uv run sr-evals build          # rebuild the frozen eval dataset (v1.json; --set holdout_v1 for the test set)
+uv run sr-evals run --cases smoke --estimate         # case count and expected cost first (free)
 uv run sr-evals run --cases smoke --max-cost-usd 5   # eval: 12 cases (or all, or ids); needs make seed, make mcp-http and a key
 uv run sr-evals run --dry-run       # the same pipeline with an oracle model: free, must score 100%
 uv run sr-evals compare A B         # two reports side by side, with the sign-test verdict

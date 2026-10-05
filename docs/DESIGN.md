@@ -870,6 +870,7 @@ Purpose: measure every change from the first agent onwards and catch regressions
   - `sr-evals run --compare-to <report>` compares with a named run instead of the latest one.
   - `sr-evals compare A B` sets two reports side by side, configurations included, with the verdict.
   - `sr-evals rescore R` scores R's stored answers again with today's scorers, with no model and no database, and writes `R-rescored`, compared with R. A scorer fix never needs a paid re-run.
+  - `sr-evals run --estimate` (with the run's own options) prints the case count and expected cost, then stops: no server, model or key. The figure per case is the latest paid report's for the same model, effort, knowledge tools and dataset, else the planning figure in section 10; it suggests a `--max-cost-usd` of 1.5 times the estimate.
   - `sr-evals inspect R` (or a file from `sra ask --json`) prints one row per run: turns, tools, thinking blocks and how many have text, cache reads per turn, repairs, wrap-ups, the models that served it, tokens, cost and time. These are TE3's checks, read from the runs rather than by hand. A turn served by another model is a fallback; a dated snapshot of the same model is not.
 
 **Model-graded rubric (TE2)**
