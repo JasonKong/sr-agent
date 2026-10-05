@@ -71,6 +71,6 @@ No results yet; the first numbers arrive with M3.
 
 - [Design document](docs/DESIGN.md)
 - [Architecture decision records](docs/adr/README.md)
-- Learning notes: [M0 foundation](docs/learning/m0-foundation.md), [M1 simulator](docs/learning/m1-simulator.md), [M2 MCP server](docs/learning/m2-mcp-server.md)
+- Learning notes: [M0 foundation](docs/learning/m0-foundation.md), [M1 simulator](docs/learning/m1-simulator.md), [M2 MCP server](docs/learning/m2-mcp-server.md), [M3 agent and evaluation](docs/learning/m3-agent-and-evals.md), [M4 RAG](docs/learning/m4-rag.md)
 
 All people, practices, clinics and vendors in this repository are fictional.
