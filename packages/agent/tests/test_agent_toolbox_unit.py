@@ -8,7 +8,14 @@ import pytest
 from mcp import Client
 
 from sr_agent.model import ModelUnavailable
-from sr_agent.toolbox import McpToolbox, ToolOutcome, open_toolbox, without
+from sr_agent.toolbox import (
+    MINIMAL_DESCRIPTIONS,
+    McpToolbox,
+    ToolOutcome,
+    open_toolbox,
+    with_descriptions,
+    without,
+)
 from sr_mcp.server import INSTRUCTIONS, create_server
 from sr_mcp.testing import fake_deps
 
@@ -107,3 +114,19 @@ def test_a_toolbox_can_hide_tools_for_an_ablation() -> None:
     assert "not available" in refused.text
     assert not allowed.is_error
     assert instructions == INSTRUCTIONS
+
+
+def test_tool_descriptions_can_be_swapped_for_an_ablation() -> None:
+    async def swapped(toolbox: McpToolbox) -> Any:
+        minimal = with_descriptions(toolbox, MINIMAL_DESCRIPTIONS)
+        return toolbox.specs(), minimal.specs(), await minimal.call("list_failed_referrals", {})
+
+    full, minimal, outcome = with_toolbox(swapped)
+
+    assert [s["name"] for s in minimal] == [s["name"] for s in full]
+    assert [s["input_schema"] for s in minimal] == [s["input_schema"] for s in full]
+    for spec in minimal:
+        assert spec["description"] == MINIMAL_DESCRIPTIONS[spec["name"]]
+        assert "\n" not in spec["description"]
+    assert not outcome.is_error
+    assert set(MINIMAL_DESCRIPTIONS) >= {s["name"] for s in full}

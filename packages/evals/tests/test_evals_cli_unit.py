@@ -94,3 +94,17 @@ def test_missing_labels_are_refused(tmp_path: Path, capsys: pytest.CaptureFixtur
     code = main(["run", "--dry-run", "--labels", str(tmp_path / "none.json")], connect=in_process)
     assert code == 2
     assert "make seed" in capsys.readouterr().err
+
+
+def test_the_prompt_and_tool_descriptions_are_recorded(labels: Path, tmp_path: Path) -> None:
+    argv = ["run", "--dry-run", "--cases", "F07-1", "--labels", str(labels)]
+    argv += ["--reports-dir", str(tmp_path / "r"), "--runs-dir", str(tmp_path / "runs")]
+    argv += ["--prompt", "v2", "--tool-descriptions", "v2"]
+    assert main(argv, connect=in_process) == 0
+
+    [path] = list((tmp_path / "r").glob("*.json"))
+    report = EvalReport.model_validate_json(path.read_text())
+    assert report.prompt_version == "v2"
+    assert report.flags["tool_descriptions"] == "v2"
+    [run] = list((tmp_path / "runs").glob("*/F07-1.json"))
+    assert '"prompt_version": "v2"' in run.read_text()

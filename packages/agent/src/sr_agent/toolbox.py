@@ -170,3 +170,43 @@ class _Without:
 def without(toolbox: Toolbox, hidden: set[str]) -> Toolbox:
     """The same tools minus `hidden`, for ablations such as an eval run without RAG."""
     return _Without(toolbox, hidden)
+
+
+# One-line descriptions, for the tool-description ablation (T5.1): how much do the server's
+# detailed descriptions (when to use a tool, what it shows and does not show) help?
+MINIMAL_DESCRIPTIONS: dict[str, str] = {
+    "get_referral": "A referral in both systems, by Composer or Hub id.",
+    "find_referrals": "Find referrals by clinic, practice, status or dates.",
+    "get_referral_timeline": "The events of a referral in both systems, in time order.",
+    "get_deliveries": "The Hub's deliveries of a referral and their attempts.",
+    "get_recipient": "A clinic: its account, specialists and PMS integrations.",
+    "get_return_path": "The specialist's responses and their filing back to the GP.",
+    "search_logs": "Log lines for a referral or correlation id.",
+    "list_failed_referrals": "Referrals with a recorded failure in a recent window.",
+    "search_knowledge": "Search past tickets and runbooks.",
+    "get_runbook": "The runbook for a root-cause code.",
+}
+
+
+class _Described:
+    def __init__(self, inner: Toolbox, descriptions: dict[str, str]) -> None:
+        self._inner = inner
+        self._descriptions = descriptions
+
+    @property
+    def instructions(self) -> str:
+        return self._inner.instructions
+
+    def specs(self) -> list[dict[str, Any]]:
+        return [
+            s | {"description": self._descriptions.get(s["name"], s["description"])}
+            for s in self._inner.specs()
+        ]
+
+    async def call(self, name: str, arguments: dict[str, Any]) -> ToolOutcome:
+        return await self._inner.call(name, arguments)
+
+
+def with_descriptions(toolbox: Toolbox, descriptions: dict[str, str]) -> Toolbox:
+    """The same tools with other descriptions; schemas and behaviour are unchanged."""
+    return _Described(toolbox, descriptions)
