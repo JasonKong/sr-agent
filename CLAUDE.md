@@ -17,6 +17,7 @@ make mcp-http    # the MCP server over HTTP on 127.0.0.1:8765, for the agent (ne
 uv run sra ask "Why didn't the specialist get GR-11854?"  # the agent; needs make mcp-http and ANTHROPIC_API_KEY
 uv run sim case F07_CLINIC_PMS_AUTH_FAILED  # one labelled case with its evidence ids (no DB needed)
 uv run sim case F00_NO_FAULT --distractor recovered_pms_auth  # a case with a distractor
+uv run sr-evals build          # rebuild the frozen eval dataset (packages/evals/datasets/v1.json)
 make test-integration          # tests marked integration, against the local Postgres
 uv run pytest -m live          # tests that call a real model API (skipped by default)
 ```

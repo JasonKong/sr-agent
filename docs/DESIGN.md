@@ -635,6 +635,29 @@ Purpose: measure every change from the first agent onwards and catch regressions
 - Ablations are flags on the runner: `--no-rag`, `--tool-descriptions v1|v2`, `--model …`.
 - CI: a 12-case smoke set (one per code) runs on manual trigger or pushes to `main`, never on pull requests from forks. Unit tests run everywhere.
 
+**Dataset and scorers (T3.3)**
+
+- **`packages/evals/datasets/v1.json`**: 75 cases from the default world (seed 42).
+  - 5 clean cases for each of the 12 codes.
+  - 15 distractor cases: recovered PMS auth 3, recovered hand-off 2, delivered before expiry 2, in progress 3, injection in a note 3, misleading ticket 2.
+- **Selection and wording are deterministic.**
+  - Each has its own seeded random stream.
+  - Cases of one code come from different clinics where possible, because clinic-level faults cluster on each clinic's recent referrals.
+  - A test rebuilds v1 from the default world, so a simulator change cannot silently change the dataset; `uv run sr-evals build` rebuilds it on purpose.
+- **Questions start from the scenario's "what CS hears" line.** A caller, an opener and an ask are drawn around it. When CS heard a question ("Did the specialist get it?"), the ask stays neutral, so F00 cases do not presuppose a fault.
+- **Each question names its referral one of three ways.**
+  - By Composer id (46 cases), by Hub id (17), or by practice, GP, clinic and local day (12).
+  - The last form is used only when no other referral from that practice to that clinic falls within a day either side.
+  - An integration test checks that `find_referrals` over the two UTC days of that local day finds exactly that referral.
+- **Each case records the labelled code, whether to escalate, and the expected evidence** (`sr_simulator.case_rows.expected_evidence`, from the scenario and distractor specs).
+- **Scorers** (`sr_evals.scorers`), each against ground truth the agent never sees:
+  - root cause: "not enough evidence" is never correct;
+  - schema;
+  - evidence resolves: every cited id exists in the generated world, and none was dropped;
+  - key evidence recall: over live records only, since past tickets are context, not proof;
+  - no patient identifiers: the world's own patient names, NHIs and dates of birth, plus the masking patterns;
+  - escalation.
+
 Acceptance: one command runs the full set and writes a report; the README shows the latest headline numbers.
 
 ### 7.6 CS console (`packages/web`)

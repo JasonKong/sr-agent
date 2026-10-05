@@ -1283,6 +1283,22 @@ requires-dist = [
 name = "sr-evals"
 version = "0.1.0"
 source = { editable = "packages/evals" }
+dependencies = [
+    { name = "pydantic" },
+    { name = "sr-agent" },
+    { name = "sr-db" },
+    { name = "sr-mcp" },
+    { name = "sr-simulator" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pydantic", specifier = ">=2.13" },
+    { name = "sr-agent", editable = "packages/agent" },
+    { name = "sr-db", editable = "packages/db" },
+    { name = "sr-mcp", editable = "packages/mcp_server" },
+    { name = "sr-simulator", editable = "packages/simulator" },
+]
 
 [[package]]
 name = "sr-mcp"
