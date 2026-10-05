@@ -372,7 +372,7 @@ Purpose: a skeleton that lints, type-checks and tests before any feature code ex
   - `contents: read` permissions only, and no secrets, so pull requests from forks run safely.
   - Third-party actions are pinned to commit SHAs.
   - `UV_LOCKED=1` fails the run when `uv.lock` is stale.
-  - Dependabot updates actions and uv dependencies weekly.
+  - Dependabot updates actions, uv dependencies and the web console's npm packages weekly.
 - `CLAUDE.md` and a `README.md` skeleton. ADRs 0001 (languages) and 0002 (local-first runtime) are already written.
 
 Acceptance: `make check` passes; `make db-up && make migrate` succeeds and a second `make migrate` applies nothing; `make test-integration` passes; CI is green on a pull request.
@@ -610,7 +610,7 @@ Acceptance:
 Purpose: turn a CS question into a verified, plain-English diagnosis.
 
 - A hand-written tool-use loop on the Anthropic Messages API. It is an MCP client connecting over Streamable HTTP; tests connect to the server in-process instead. It has no direct database or log access.
-- `ModelClient` interface with Anthropic and Bedrock implementations, plus `FakeModel` for tests. The model id comes from configuration: `claude-opus-5-5` at effort `medium` for the baseline, until the M3 evaluation compares models (section 11).
+- `ModelClient` interface with Anthropic and Bedrock implementations, plus `FakeModel` for tests. The model id comes from configuration: `claude-opus-5-5` at effort `medium` for the baseline, until the M3 evaluation compares models (section 11). Each model the agent may ask for has a request profile (TE0, below).
 - System prompt rules:
   - Look up data before answering.
   - Check both systems before blaming either.
@@ -664,8 +664,8 @@ Purpose: turn a CS question into a verified, plain-English diagnosis.
 | Tool results | Compact JSON of the server's structured content | The same data as the server's indented text, in fewer tokens |
 | Limits | Tool calls, time and tokens are counted by the loop. Every model and tool await runs under `asyncio.timeout` with the time left. A batch of calls that would exceed the tool budget is not run | Limits are policy for one diagnosis, whatever the provider or transport. The SDK's own timeout applies per attempt, so retries could overrun it |
 | Per-request settings | `max_tokens`, HTTP timeout and retries live in `AnthropicModel`; result size caps stay in the MCP server | Transport details belong to the provider adapter; size caps protect every client |
-| Request shape | Effort sent explicitly; thinking left at its default (always on); `tool_choice` left at `auto`; automatic prompt caching (top-level `cache_control`) | On Opus 5.5 thinking cannot be disabled, forced tool use is rejected and the default effort is `medium`. The system prompt holds nothing that changes per request, so tools, system prompt and history are cached |
-| Refusal fallback | On by default (`fallbacks: "default"`, beta `server-side-fallback-2026-07-01`; `SRA_FALLBACK=off` disables it). Each turn records the model that served it | A false-positive safety classification becomes a retry, not a failure. The evaluation must see when another model answered |
+| Request shape | Built from the model's profile (TE0): effort sent explicitly where the model takes it, thinking at its default (always on) or, on Haiku 4.5, a token budget; `tool_choice` left at `auto`; two cache breakpoints, after the system prompt and automatic (top-level `cache_control`) | On Opus 5.5 thinking cannot be disabled, forced tool use is rejected and the default effort is `medium`. The system prompt holds nothing that changes per request, so tools, system prompt and history are cached, and the first breakpoint lets every case share the tools and system prompt |
+| Refusal fallback | On by default where the model accepts it (`fallbacks: "default"`, beta `server-side-fallback-2026-07-01`; `SRA_FALLBACK=off` disables it). Each turn records the model that served it | A false-positive safety classification becomes a retry, not a failure. The evaluation must see when another model answered |
 | System prompt | The agent's own (`sr_agent.prompts`, versioned), plus the MCP server's `instructions` and the root-cause codes | The evaluation tunes the agent's prompt (T5.1). The domain description stays in one place, the server |
 | Failures of the services | Raised (`ModelUnavailable`, `ToolsUnavailable`), not reported as an outcome. `sra` checks model credentials before connecting | An unreachable server or a bad key says nothing about the referral. The SDK reports missing credentials only when it builds the first request |
 | Run record | `AgentRun`: answer, outcome, tool calls with arguments and timings, tokens (with cache reads and writes), the model that served each turn, prompt version and transcript | The raw material for evaluation metrics (T3.4) and the audit log (T5.3) |
@@ -741,6 +741,24 @@ Purpose: turn a CS question into a verified, plain-English diagnosis.
 - **Service failures.** The MCP server is connected per request: the API starts even when it is down, and a failure of MCP or the model API is a `503` with the reason.
 - **Where diagnoses are kept:** the Postgres audit when `SRA_AUDIT_DATABASE_URL` is set, otherwise in memory.
 
+**Model profiles and run safety (TE0)**
+
+- **A request profile per model** (`sr_agent.model_profiles`), because a parameter a model does not take is a 400, not a silent no-op:
+
+  | Model | Effort | Thinking | Refusal fallback | Smallest cached prefix |
+  | --- | --- | --- | --- | --- |
+  | `claude-opus-5-5` | `low` to `max`, sent explicitly (default `medium`) | Always on (adaptive) | `"default"` | 512 tokens |
+  | `claude-sonnet-5-5` | `low` to `max`, sent explicitly (the API default would be `high`) | Always on (adaptive) | `"default"` (Claude API only) | 512 tokens |
+  | `claude-haiku-4-5` | None: `effort` is rejected | A budget of 4,096 tokens per reply, with the interleaved-thinking beta so it thinks between tool calls | Not sent | 4,096 tokens |
+
+  - A model without a profile is refused before connecting, naming the known ones. A new model needs a profile and a price; a test checks every profile has one.
+  - For a model without effort levels the default effort is dropped, but an effort asked for (`--effort` or `SRA_EFFORT`) is refused, so a report never claims a setting that was not sent.
+  - The fallback models (Opus 5, Opus 4.8, Sonnet 5) have prices too, so a run with a fallback turn still has a cost.
+- **Two cache breakpoints.** Automatic caching puts its one breakpoint on the last block, which is different for every case, so cases could not reuse each other's tools and system prompt. A breakpoint after the system prompt makes that prefix (about 5,000 tokens) a cache read for every case after the first.
+- **Readable thinking.** `SRA_THINKING_DISPLAY=summarized` (or `--thinking-display`) returns summaries of the thinking, at the same cost, for reading transcripts. The default stays `omitted`.
+- **A cost cap per eval run.** `sr-evals run --max-cost-usd N` stops starting cases once the finished ones have cost that much. Running cases finish, so a run can pass the cap by up to `concurrency - 1` cases; cases not run are errors, to be run later with `--cases`.
+- **The live tests** (`pytest -m live`) send each profile's request with a dummy question, run the loop on each model, and check that a second run reads the shared prefix on its first turn.
+
 Acceptance:
 - Each scenario is diagnosed correctly in a live local run.
 - Schema validation never fails silently.
@@ -769,7 +787,7 @@ Purpose: measure every change from the first agent onwards and catch regressions
   - Tokens and estimated cost per case.
 - Reports go to `packages/evals/reports/` as Markdown and JSON, each with a comparison to the previous run.
 - Ablations are flags on the runner: `--no-rag`, `--tool-descriptions v1|v2`, `--model …`.
-- CI: a 12-case smoke set (one per code) runs on manual trigger or pushes to `main`, never on pull requests from forks. Unit tests run everywhere.
+- CI: a 12-case smoke set (one per code) runs on a manual trigger only, with a cost cap. Unit tests run everywhere.
 
 **Dataset and scorers (T3.3)**
 
@@ -797,7 +815,7 @@ Purpose: measure every change from the first agent onwards and catch regressions
 **Runner and reports (T3.4)**
 
 - **`uv run sr-evals run`** runs the agent over the dataset.
-  - **Options:** `--cases all|smoke|F07-1,…`, `--model`, `--effort`, `--no-rag`, `--concurrency 4`.
+  - **Options:** `--cases all|smoke|F07-1,…`, `--model`, `--effort`, `--no-rag`, `--concurrency 4`, `--thinking-display`, `--max-cost-usd`.
   - **Before it starts,** it checks that the seeded world (`var/sim/labels.json`) is the dataset's world.
   - **During the run:**
     - All cases share one MCP connection, with up to four cases at a time.
@@ -809,8 +827,8 @@ Purpose: measure every change from the first agent onwards and catch regressions
     - p50 and p95 latency, tool calls and tokens per case;
     - estimated cost (`sr_agent.pricing`, list prices);
     - outcomes, the models that served each turn, and a confusion list of wrong answers.
-  - **Comparison:** each report is compared with the latest earlier report for the same dataset version and case set, including which cases became right or wrong.
-  - **Full runs,** transcripts included, go to `var/evals/runs/<report id>/`, which is git-ignored.
+  - **Comparison:** each report is compared with the latest earlier report for the same dataset version and case set, including which cases became right or wrong. A report in a format this version cannot read is skipped with a warning (TE0: an old dry-run report once stopped a whole run at this step).
+  - **Full runs,** transcripts included, go to `var/evals/runs/<report id>/`, which is git-ignored. They are written before the report, so a failure while reporting never loses what a run cost.
 - **`--dry-run`** replaces the model with an oracle that reads the answer key.
   - **What it does:**
     - It calls the same six tools a careful agent would, then cites the expected live records.
@@ -818,7 +836,7 @@ Purpose: measure every change from the first agent onwards and catch regressions
     - An integration test runs it over all 75 cases through the real database and HTTP server.
   - **Where its reports go:** `var/evals/reports/`, so they never enter the run-to-run comparison.
 - **Smoke set:** one clean case per code (`F00-1` … `F11-1`).
-  - **When it runs:** `.github/workflows/eval.yml` runs it on a manual trigger or a push to `main`, never on pull requests, so no fork can reach the API key.
+  - **When it runs:** `.github/workflows/eval.yml` runs it on a manual trigger only: never on pull requests, so no fork can reach the API key, and never on a push, so merging costs nothing. It stops starting cases after $5 (`--max-cost-usd`).
   - **Without the `ANTHROPIC_API_KEY` secret,** it runs the oracle dry run instead.
 
 Acceptance: one command runs the full set and writes a report; the README shows the latest headline numbers.
@@ -996,6 +1014,39 @@ Each milestone ends with something to demonstrate and a learning note. Each task
 - [ ] T6.1 Web scaffold and ask and answer screens with the evidence view.
 - [ ] T6.2 Feedback, history and the Playwright end-to-end test.
 - [ ] M6 demo: a 2 to 3 minute video of a CS user resolving three cases.
+
+### ME Evaluation against the model API (completes M3–M5)
+
+The first measurements with a real model. The work that needs no model API comes first, built and tested with fakes, the oracle and the local database (TE0–TE2). Every paid run after that is announced with its case count and estimated cost before it starts. The 75 `v1` cases are the development set; a holdout set from another seed is run once, at the end (section 7.5).
+
+- [ ] TE0 Model profiles and run safety: the request each model accepts (effort, thinking, fallbacks); a cache breakpoint after the system prompt; readable thinking; a cost cap per eval run; the eval workflow on a manual trigger only; Dependabot for the web console.
+- [ ] TE1 Comparison tooling and the holdout set: `sr-evals compare` (a paired sign test) and `--compare-to`; `sr-evals rescore` for stored runs; the holdout dataset from another seed, checked by the oracle.
+- [ ] TE2 Rubric grader: summary clarity and the next step, graded by a cheaper model with structured output, versioned and reported apart from the deterministic scores; synthetic answers with known labels; the Batch API path.
+- [ ] TE3 First calls: the live tests on each model; the five M2 cases through `sra ask`; transcripts checked for thinking replay, cache reads, structured output with tools and the wrap-up turn.
+- [ ] TE4 Baseline: the smoke set, then all 75 cases without RAG; failures grouped by cause; whether 8 tool calls and 60 s are enough.
+- [ ] TE5 Noise: the baseline again, and the answers that flip, against the rule in section 7.5.
+- [ ] TE6 RAG: all 75 cases with knowledge search, against the baseline.
+- [ ] TE7 Variants: prompt v2 and one-line tool descriptions; prompt v3 from the failure groups, one change at a time.
+- [ ] TE8 Grader calibration: hand labels on real answers, agreement per criterion, then the rubric on the reports so far.
+- [ ] TE9 Model and effort: Opus 5.5 at a second level, Sonnet 5.5 and Haiku 4.5; ADR 0004; the chosen configuration once on the holdout set.
+- [ ] TE10 Wrap-up: the section 1 targets met or not; README results; the PENDING sections of the M3–M5 notes; section 11.
+
+The budget, at list prices. Estimates assume Claude Opus 5.5 at effort `medium` costs about $0.15 a case ($0.17 with RAG): a prefix of about 5,000 tokens, five model calls, six tool calls and 3,500 output tokens. TE3 measures the real figure, and the table is re-estimated then.
+
+| Task | Paid runs | Planned | Actual |
+| --- | --- | --- | --- |
+| TE0–TE2 | None: fakes, the oracle and the local database | $0 | $0 |
+| TE3 | Live tests on three models; five `sra ask` cases; two cases with summarized thinking | about $2.50 | |
+| TE4 | Smoke set (12), then all 75 without RAG | about $13 | |
+| TE5 | All 75 without RAG again | about $11 | |
+| TE6 | All 75 with RAG | about $13 | |
+| TE7 | Prompt v2, tool descriptions v2 and prompt v3 (75 each); v3 trials on subsets (about 60) | about $48 | |
+| TE8 | Grader calibration; about eight reports graded through the Batch API | about $3 | |
+| TE9 | Opus 5.5 at a second effort, Sonnet 5.5, Haiku 4.5 (75 each); the holdout set once | $25 to $45 | |
+| TE10 | Optional: Playwright against the real model | about $1 | |
+| **Total** | Plus about $25 kept for re-runs after errors and for repeating a close comparison | **$117 to $137; cap $160** | |
+
+A leaner plan, about $90, drops the one-line tool descriptions run, writes prompt v3 only for a failure group with at least three development cases, and keeps no reserve.
 
 ### M7 Optional AWS deployment
 

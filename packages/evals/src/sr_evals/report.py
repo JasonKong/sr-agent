@@ -9,12 +9,13 @@ from __future__ import annotations
 
 import json
 import math
+import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 from statistics import fmean
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from sr_evals.scorers import CaseScore
 
@@ -186,11 +187,23 @@ def compare(current: EvalReport, previous: EvalReport) -> Comparison:
 def find_previous(
     reports_dir: Path, *, case_set: str, dataset_version: str, before: str
 ) -> EvalReport | None:
-    """The latest report earlier than `before` (a report id) for the same cases."""
+    """The latest report earlier than `before` (a report id) for the same cases.
+
+    A report this code cannot read, such as one written before a field was added, is
+    skipped with a warning: a comparison is worth having, but not at the cost of the run.
+    """
     for path in sorted(reports_dir.glob("*.json"), reverse=True):
         if path.stem >= before:
             continue
-        candidate = EvalReport.model_validate_json(path.read_text())
+        try:
+            candidate = EvalReport.model_validate_json(path.read_text())
+        except ValidationError as error:
+            print(
+                f"sr-evals: skipping {path.name} for the comparison: it is not a report this "
+                f"version can read ({error.error_count()} problems)",
+                file=sys.stderr,
+            )
+            continue
         if candidate.case_set == case_set and candidate.dataset_version == dataset_version:
             return candidate
     return None

@@ -160,3 +160,31 @@ def test_the_cost_cap_reaches_the_runner(labels: Path, tmp_path: Path) -> None:
     report = EvalReport.model_validate_json(path.read_text())
     assert report.metrics.errors == 2
     assert {s.error for s in report.scores} == {"not run: the cost cap of $0.00 was reached"}
+
+
+def test_an_unreadable_earlier_report_does_not_lose_the_run(labels: Path, tmp_path: Path) -> None:
+    reports, runs = tmp_path / "r", tmp_path / "runs"
+    reports.mkdir()
+    (reports / "20200101-000000-oracle.json").write_text("{}")  # an old, unreadable format
+    argv = ["run", "--dry-run", "--cases", "F07-1", "--labels", str(labels)]
+    argv += ["--reports-dir", str(reports), "--runs-dir", str(runs)]
+    assert main(argv, connect=in_process) == 0
+
+    [path] = [p for p in reports.glob("*.json") if not p.name.startswith("2020")]
+    assert EvalReport.model_validate_json(path.read_text()).comparison is None
+    assert (runs / path.stem / "F07-1.json").exists()
+
+
+def test_the_runs_are_saved_before_anything_that_could_fail(
+    labels: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def broken(*args: object, **kwargs: object) -> None:
+        raise RuntimeError("the report step failed")
+
+    monkeypatch.setattr("sr_evals.cli.find_previous", broken)
+    argv = ["run", "--dry-run", "--cases", "F07-1", "--labels", str(labels)]
+    argv += ["--reports-dir", str(tmp_path / "r"), "--runs-dir", str(tmp_path / "runs")]
+    with pytest.raises(RuntimeError):
+        main(argv, connect=in_process)
+
+    assert [p.name for p in (tmp_path / "runs").glob("*/*.json")] == ["F07-1.json"]

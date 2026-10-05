@@ -24,3 +24,20 @@ updates:
       python-minor-and-patch:
         patterns: ["*"]
         update-types: [minor, patch]
+
+  # The web console (packages/web, pnpm). A TypeScript major is a deliberate upgrade:
+  # typescript-eslint and openapi-typescript lag behind it (DESIGN.md section 7.6).
+  - package-ecosystem: npm
+    directory: /packages/web
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: chore
+      include: scope
+    ignore:
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+    groups:
+      web-minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]

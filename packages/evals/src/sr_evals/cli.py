@@ -188,9 +188,16 @@ def _run(args: argparse.Namespace, connect: Connect) -> int:
         print(f"sr-evals: {error}", file=sys.stderr)
         return 1
 
-    scores = [score_case(r.case, r.run, index, error=r.error) for r in results]
     now = datetime.now(UTC)
     report_id = f"{now:%Y%m%d-%H%M%S}-{model_name}" + (f"-{args.label}" if args.label else "")
+    # The runs first: they are what the run cost, and the report can be rebuilt from them.
+    runs_dir = (args.runs_dir or project_root() / "var" / "evals" / "runs") / report_id
+    runs_dir.mkdir(parents=True, exist_ok=True)
+    for result in results:
+        body = result.run.model_dump(mode="json") if result.run else {"error": result.error}
+        (runs_dir / f"{result.case.case_id}.json").write_text(json.dumps(body, indent=2) + "\n")
+
+    scores = [score_case(r.case, r.run, index, error=r.error) for r in results]
     reports_dir = args.reports_dir or (
         project_root() / "var" / "evals" / "reports" if args.dry_run else REPORTS_DIR
     )
@@ -225,12 +232,6 @@ def _run(args: argparse.Namespace, connect: Connect) -> int:
     if previous is not None:
         report = report.model_copy(update={"comparison": compare(report, previous)})
     _, md_path = write_report(report, reports_dir)
-
-    runs_dir = (args.runs_dir or project_root() / "var" / "evals" / "runs") / report_id
-    runs_dir.mkdir(parents=True, exist_ok=True)
-    for result in results:
-        body = result.run.model_dump(mode="json") if result.run else {"error": result.error}
-        (runs_dir / f"{result.case.case_id}.json").write_text(json.dumps(body, indent=2) + "\n")
 
     m = report.metrics
     cost = f", ${m.cost_total_usd:.2f} total" if m.cost_total_usd is not None else ""

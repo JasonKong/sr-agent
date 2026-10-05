@@ -172,6 +172,20 @@ def test_the_previous_report_is_the_latest_for_the_same_cases(tmp_path: Path) ->
     assert find_previous(tmp_path, case_set="all", dataset_version="v1", before="20261001") is None
 
 
+def test_a_report_in_an_older_format_is_skipped_not_fatal(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    write_report(report("20261001-090000-a", SCORES), tmp_path)
+    # Written before a field was added to the scores: it no longer validates.
+    (tmp_path / "20261002-090000-old.json").write_text('{"report_id": "20261002-090000-old"}')
+
+    previous = find_previous(tmp_path, case_set="all", dataset_version="v1", before="20261005")
+
+    assert previous is not None
+    assert previous.report_id == "20261001-090000-a"
+    assert "20261002-090000-old.json" in capsys.readouterr().err
+
+
 def test_both_files_are_written_and_the_markdown_leads_with_the_headline(tmp_path: Path) -> None:
     current = report("r2", SCORES, comparison=compare(report("r2", SCORES), report("r1", SCORES)))
     json_path, md_path = write_report(current, tmp_path)
