@@ -56,6 +56,14 @@ make test-integration
 
 After the quick start, open the project in Claude Code, approve the `sr-agent` MCP server, and ask: *"The specialist says GR-11854 never arrived in their system. Why?"* See [the setup guide](docs/guides/claude-mcp-setup.md) for Claude Desktop and more examples.
 
+Or use the CS console in a browser. Without an API key, an oracle stands in for the model:
+
+```bash
+make mcp-http                    # terminal 1: the MCP server
+uv run sr-evals serve-oracle     # terminal 2: the agent API (or `make api` with a key)
+make web-install && make web-dev # terminal 3: http://localhost:5173
+```
+
 Or ask the project's own agent from the terminal (needs `ANTHROPIC_API_KEY` in `.env`):
 
 ```bash

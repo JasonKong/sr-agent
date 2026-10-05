@@ -7,6 +7,7 @@ appear in this public repository. To add a word locally:
 """
 
 import hashlib
+import os
 import re
 from collections.abc import Iterator
 from itertools import pairwise
@@ -31,7 +32,20 @@ DENYLIST = {
     "e70b0e3f3651e65a",
 }
 REPO = Path(__file__).resolve().parents[3]
-SCANNED = {".py", ".md", ".yaml", ".yml", ".sql", ".toml", ".json"}
+SCANNED = {
+    ".py",
+    ".md",
+    ".yaml",
+    ".yml",
+    ".sql",
+    ".toml",
+    ".json",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".html",
+    ".css",  # the web console
+}
 SKIPPED_DIRS = {
     ".git",
     ".venv",
@@ -40,6 +54,9 @@ SKIPPED_DIRS = {
     ".mypy_cache",
     ".pytest_cache",
     ".ruff_cache",
+    "dist",
+    "playwright-report",
+    "test-results",
 }
 
 
@@ -59,10 +76,13 @@ def _denied(text: str) -> set[str]:
 
 
 def _repo_files() -> Iterator[Path]:
-    for path in REPO.rglob("*"):
-        skipped = SKIPPED_DIRS.intersection(path.relative_to(REPO).parts)
-        if path.is_file() and path.suffix in SCANNED and not skipped:
-            yield path
+    # Skipped directories are pruned during the walk: node_modules alone is huge.
+    for directory, subdirectories, files in os.walk(REPO):
+        subdirectories[:] = sorted(d for d in subdirectories if d not in SKIPPED_DIRS)
+        for name in sorted(files):
+            path = Path(directory) / name
+            if path.suffix in SCANNED:
+                yield path
 
 
 def test_the_check_itself_works() -> None:

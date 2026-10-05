@@ -17,8 +17,12 @@ htmlcov/
 !.env.example
 var/
 
-# Node (web console, later)
+# Node (web console)
 node_modules/
+packages/web/dist/
+packages/web/playwright-report/
+packages/web/test-results/
+*.tsbuildinfo
 
 # OS and editors
 .DS_Store

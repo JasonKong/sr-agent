@@ -1,4 +1,4 @@
-.PHONY: install check lint typecheck test fmt db-up db-down db-reset migrate db-roles db-auditor seed ingest mcp mcp-http api test-integration
+.PHONY: install check lint typecheck test fmt db-up db-down db-reset migrate db-roles db-auditor seed ingest mcp mcp-http api web-install web-check web-dev test-integration
 
 install: ## Install all workspace packages and dev tools
 	uv sync
@@ -55,3 +55,12 @@ ingest: ## Chunk, mask and embed tickets and runbooks for retrieval (after make 
 
 test-integration: ## Tests that need the local Postgres (run make db-up first)
 	uv run pytest -m integration
+
+web-install: ## Install the web console's packages (pnpm)
+	pnpm --dir packages/web install --frozen-lockfile
+
+web-check: ## The web console's typecheck, lint, format check and unit tests
+	pnpm --dir packages/web check
+
+web-dev: ## The web console on http://localhost:5173 (proxies /api to make api)
+	pnpm --dir packages/web dev

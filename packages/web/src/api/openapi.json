@@ -1,0 +1,746 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "SR-Agent API",
+    "description": "Explains why a simulated GP-to-specialist referral failed, with evidence.",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "summary": "Healthz",
+        "operationId": "healthz_healthz_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "type": "object",
+                  "title": "Response Healthz Healthz Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/diagnoses": {
+      "post": {
+        "summary": "Create Diagnosis",
+        "operationId": "create_diagnosis_diagnoses_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiagnosisRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiagnosisResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "History",
+        "operationId": "history_diagnoses_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/HistoryItem"
+                  },
+                  "title": "Response History Diagnoses Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/diagnoses/{diagnosis_id}": {
+      "get": {
+        "summary": "Get Diagnosis",
+        "operationId": "get_diagnosis_diagnoses__diagnosis_id__get",
+        "parameters": [
+          {
+            "name": "diagnosis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Diagnosis Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiagnosisResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/diagnoses/{diagnosis_id}/feedback": {
+      "post": {
+        "summary": "Add Feedback",
+        "operationId": "add_feedback_diagnoses__diagnosis_id__feedback_post",
+        "parameters": [
+          {
+            "name": "diagnosis_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Diagnosis Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Feedback"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Diagnosis": {
+        "properties": {
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "root_cause_code": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FailureCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "confidence": {
+            "type": "string",
+            "enum": ["high", "medium", "low"],
+            "title": "Confidence"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/Evidence"
+            },
+            "type": "array",
+            "title": "Evidence"
+          },
+          "recommended_action": {
+            "type": "string",
+            "title": "Recommended Action"
+          },
+          "draft_customer_reply": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Draft Customer Reply"
+          },
+          "escalate_to_engineering": {
+            "type": "boolean",
+            "title": "Escalate To Engineering"
+          }
+        },
+        "type": "object",
+        "required": [
+          "summary",
+          "root_cause_code",
+          "confidence",
+          "evidence",
+          "recommended_action",
+          "draft_customer_reply",
+          "escalate_to_engineering"
+        ],
+        "title": "Diagnosis",
+        "description": "The checked diagnosis: every evidence id resolved to a record seen in this run."
+      },
+      "DiagnosisRequest": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 5,
+            "title": "Question",
+            "description": "What CS was told."
+          },
+          "referral_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(GR|HR)-\\d+$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Referral Id",
+            "description": "The referral, if CS has its id."
+          }
+        },
+        "type": "object",
+        "required": ["question"],
+        "title": "DiagnosisRequest"
+      },
+      "DiagnosisResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "answered",
+              "tool_limit",
+              "time_limit",
+              "token_limit",
+              "max_tokens",
+              "refused",
+              "invalid_output",
+              "unexpected_stop"
+            ],
+            "title": "Outcome"
+          },
+          "incomplete": {
+            "type": "boolean",
+            "title": "Incomplete"
+          },
+          "diagnosis": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Diagnosis"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "served_by": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Served By"
+          },
+          "prompt_version": {
+            "type": "string",
+            "title": "Prompt Version"
+          },
+          "turns": {
+            "type": "integer",
+            "title": "Turns"
+          },
+          "tool_calls": {
+            "items": {
+              "$ref": "#/components/schemas/ToolCallRecord"
+            },
+            "type": "array",
+            "title": "Tool Calls"
+          },
+          "duration_ms": {
+            "type": "number",
+            "title": "Duration Ms"
+          },
+          "cost_usd": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Usd"
+          },
+          "safety_flags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Safety Flags"
+          },
+          "dropped_evidence": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Dropped Evidence"
+          },
+          "feedback": {
+            "items": {
+              "$ref": "#/components/schemas/FeedbackRecord"
+            },
+            "type": "array",
+            "title": "Feedback"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "created_at",
+          "question",
+          "outcome",
+          "incomplete",
+          "diagnosis",
+          "model",
+          "served_by",
+          "prompt_version",
+          "turns",
+          "tool_calls",
+          "duration_ms",
+          "cost_usd",
+          "safety_flags",
+          "dropped_evidence",
+          "feedback"
+        ],
+        "title": "DiagnosisResponse"
+      },
+      "Evidence": {
+        "properties": {
+          "record_type": {
+            "type": "string",
+            "title": "Record Type"
+          },
+          "record_id": {
+            "type": "string",
+            "title": "Record Id"
+          },
+          "system": {
+            "type": "string",
+            "enum": ["composer", "hub", "knowledge"],
+            "title": "System"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "required": ["record_type", "record_id", "system", "detail"],
+        "title": "Evidence"
+      },
+      "FailureCode": {
+        "type": "string",
+        "enum": [
+          "F00_NO_FAULT",
+          "F01_MISSING_REQUIRED_FIELD",
+          "F02_PDF_TOO_LARGE",
+          "F03_SOURCE_DOC_SKIPPED",
+          "F04_HUB_UNAVAILABLE",
+          "F05_ATTACHMENT_FETCH_FAILED",
+          "F06_MANUAL_ROUTING",
+          "F07_CLINIC_PMS_AUTH_FAILED",
+          "F08_CLINIC_PMS_TIMEOUT",
+          "F09_CLINIC_IMPORT_REJECTED",
+          "F10_DELIVERED_NOT_ACTIONED",
+          "F11_RESPONSE_NOT_FILED"
+        ],
+        "title": "FailureCode",
+        "description": "Ground-truth root causes (DESIGN.md section 3.4)."
+      },
+      "Feedback": {
+        "properties": {
+          "rating": {
+            "type": "string",
+            "enum": ["UP", "DOWN"],
+            "title": "Rating"
+          },
+          "correct_code": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FailureCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          }
+        },
+        "type": "object",
+        "required": ["rating"],
+        "title": "Feedback"
+      },
+      "FeedbackRecord": {
+        "properties": {
+          "rating": {
+            "type": "string",
+            "enum": ["UP", "DOWN"],
+            "title": "Rating"
+          },
+          "correct_code": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FailureCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "comment": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Comment"
+          },
+          "user": {
+            "type": "string",
+            "title": "User"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": ["rating", "user", "created_at"],
+        "title": "FeedbackRecord"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HistoryItem": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "outcome": {
+            "type": "string",
+            "title": "Outcome"
+          },
+          "root_cause_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Cause Code"
+          },
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "created_at",
+          "question",
+          "outcome",
+          "root_cause_code",
+          "confidence",
+          "summary"
+        ],
+        "title": "HistoryItem"
+      },
+      "ToolCallRecord": {
+        "properties": {
+          "turn": {
+            "type": "integer",
+            "title": "Turn"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "arguments": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Arguments"
+          },
+          "is_error": {
+            "type": "boolean",
+            "title": "Is Error"
+          },
+          "result_chars": {
+            "type": "integer",
+            "title": "Result Chars"
+          },
+          "duration_ms": {
+            "type": "number",
+            "title": "Duration Ms"
+          }
+        },
+        "type": "object",
+        "required": ["turn", "name", "arguments", "is_error", "result_chars", "duration_ms"],
+        "title": "ToolCallRecord"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": ["loc", "msg", "type"],
+        "title": "ValidationError"
+      }
+    }
+  }
+}

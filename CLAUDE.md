@@ -24,6 +24,7 @@ uv run sr-evals build          # rebuild the frozen eval dataset (packages/evals
 uv run sr-evals run --cases smoke   # eval: 12 cases (or all, or ids); needs make seed, make mcp-http and a key
 uv run sr-evals run --dry-run       # the same pipeline with an oracle model: free, must score 100%
 uv run sr-evals retrieval           # retrieval experiments (embedders x chunk sizes x modes) on scratch DBs
+uv run sr-evals serve-oracle        # the agent API with an oracle model, for the console and e2e without a key
 make test-integration          # tests marked integration, against the local Postgres
 uv run pytest -m live          # tests that call a real model API (skipped by default)
 ```
@@ -41,7 +42,7 @@ CI (`.github/workflows/ci.yml`) runs `make check` and, against a Postgres servic
   - `evals` → `sr_evals`
 - Tests live in `packages/<dir>/tests/`. Test file names must be unique across the repo: the tests directories have no `__init__.py`, and mypy and pytest import by file name.
 - Shared pytest fixtures live in `sr_db.testing` (for example `migrated`, a throwaway migrated database), loaded by the root `conftest.py`. Do not add another `conftest.py`.
-- `packages/web` (TypeScript) arrives in M6; `infra/` (AWS CDK) only in the optional M7.
+- `packages/web` (TypeScript, pnpm; not in the uv workspace) is the CS console: `make web-install`, `make web-check`, `make web-dev`. Regenerate its API types with `pnpm --dir packages/web api:types` after changing the agent API. `infra/` (AWS CDK) arrives only in the optional M7.
 
 ## Working on a task
 
