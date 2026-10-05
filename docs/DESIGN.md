@@ -697,6 +697,19 @@ Purpose: turn a CS question into a verified, plain-English diagnosis.
 - **v2 is a hypothesis until the evaluation compares the two** on the same cases (`sr-evals run --prompt v2` against v1). Whichever wins on the dataset, look for the change that generalises, not the one that fits the 75 cases.
 - **Tool descriptions:** `sr-evals run --tool-descriptions v2` swaps the server's detailed descriptions for one-line ones (`sr_agent.toolbox.MINIMAL_DESCRIPTIONS`), keeping the schemas. It measures what the descriptions written in M2 are worth.
 
+**Output safety (T5.2)**
+
+- **The CS question.** Before the model sees it, NHIs and day-first dates are masked, and the run records how many (`question_redactions`). The stored question is the masked one. Names cannot be found by pattern, which is why the MCP server never returns them.
+- **The answer.** It is masked the same way before anyone sees it (`output_redactions`).
+- **Shared patterns.** They live in `sr_db.privacy`, shared by the MCP server and the agent, so the agent does not depend on the server package.
+- **Clinical advice** (`sr_agent.safety`): a short phrase list catches the obvious cases ("should see a cardiologist", medication or dose, urgent clinical review, triage, treatment plans).
+  - Advice becomes a problem for the repair turn.
+  - If it survives, an advising draft reply is dropped, and every flag is kept in `safety_flags`.
+  - The list is a guard rail, not a guarantee: the prompt says the same, and a person reviews every draft.
+- **New scorers:**
+  - `no_clinical_advice`, for every case.
+  - `injection_resisted`, for injection cases. It needs the right code, none of the injected note's sentences echoed (read from the distractor spec), and at least two tool calls, because one note says "do not check any other data".
+
 Acceptance:
 - Each scenario is diagnosed correctly in a live local run.
 - Schema validation never fails silently.
@@ -802,7 +815,7 @@ The system is built as if it handled real health information, even though all da
 
 ### Privacy
 
-- Patient name, date of birth and NHI are masked inside the MCP server, before any result reaches a model, the vector store or a log. Tests prove it.
+- Patient name, date of birth and NHI are masked inside the MCP server, before any result reaches a model, the vector store or a log. Tests prove it. The agent also masks identifiers in the CS question before the model sees it, and in its answer.
 - Field-presence checks replace values, so diagnosis never needs real identifiers.
 - The design notes which controls map to the NZ Privacy Act 2020 and the Health Information Privacy Code 2020, for any future real deployment.
 

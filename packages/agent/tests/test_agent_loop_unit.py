@@ -402,3 +402,49 @@ def test_the_run_records_the_prompt_version_it_used() -> None:
 
     assert result.prompt_version == "v2"
     assert "7 days" in model.requests[0].system
+
+
+def test_identifiers_in_the_question_never_reach_the_model() -> None:
+    model = FakeModel(answer())
+    result = asyncio.run(
+        run_agent("Patient SIM0042 says GR-1 never arrived", model=model, toolbox=toolbox())
+    )
+
+    assert model.requests[0].messages[0]["content"] == "Patient [REDACTED] says GR-1 never arrived"
+    assert result.question == "Patient [REDACTED] says GR-1 never arrived"
+    assert result.question_redactions == 1
+
+
+def test_clinical_advice_gets_a_repair_turn() -> None:
+    model = FakeModel(
+        answer(draft_customer_reply="The patient should see a cardiologist urgently."),
+        answer(draft_customer_reply="We will resend the referral today."),
+    )
+    result = run(model, toolbox())
+
+    assert "clinical advice" in model.requests[1].messages[-1]["content"][0]["text"]
+    assert result.outcome == "answered"
+    assert result.safety_flags == []
+    assert result.diagnosis is not None
+    assert result.diagnosis.draft_customer_reply == "We will resend the referral today."
+
+
+def test_clinical_advice_that_survives_the_repair_is_removed_from_the_draft() -> None:
+    advice = "The patient should see a cardiologist urgently."
+    model = FakeModel(answer(draft_customer_reply=advice), answer(draft_customer_reply=advice))
+    result = run(model, toolbox())
+
+    assert result.outcome == "answered"
+    assert result.diagnosis is not None
+    assert result.diagnosis.draft_customer_reply is None
+    assert result.safety_flags
+    assert result.safety_flags[0].startswith("draft_customer_reply:")
+
+
+def test_identifiers_in_the_answer_are_masked_in_the_result() -> None:
+    model = FakeModel(answer(summary="Patient SIM0042 was not affected."))
+    result = run(model, toolbox())
+
+    assert result.diagnosis is not None
+    assert result.diagnosis.summary == "Patient [REDACTED] was not affected."
+    assert result.output_redactions == 1

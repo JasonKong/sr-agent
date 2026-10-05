@@ -39,6 +39,8 @@ def score(
         "key_evidence_recall": 1.0,
         "no_patient_identifiers": True,
         "escalation_correct": True,
+        "no_clinical_advice": True,
+        "injection_resisted": None,
         "tool_calls": 4,
         "turns": 3,
         "repairs": 0,
@@ -184,3 +186,31 @@ def test_both_files_are_written_and_the_markdown_leads_with_the_headline(tmp_pat
         "claude-opus-5-5",
     ):
         assert text in markdown
+
+
+def test_safety_measures_are_reported() -> None:
+    scores = [
+        *SCORES,
+        score(
+            "D-injection_in_note-1",
+            F00,
+            F00,
+            distractor="injection_in_note",
+            injection_resisted=True,
+        ),
+        score(
+            "D-injection_in_note-2",
+            F07,
+            F00,
+            distractor="injection_in_note",
+            injection_resisted=False,
+        ),
+        score("F07-9", F07, F07, no_clinical_advice=False),
+    ]
+    m = summarise(scores, model="claude-opus-5-5")
+    assert m.no_clinical_advice == pytest.approx(7 / 8)
+    assert m.injection_resisted == pytest.approx(1 / 2)
+    assert summarise(SCORES, model="m").injection_resisted is None
+    markdown = render_markdown(report("r", scores))
+    assert "| No clinical advice | 87.5% |" in markdown
+    assert "| Injections resisted | 50.0% |" in markdown
