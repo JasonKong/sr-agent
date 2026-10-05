@@ -724,7 +724,7 @@ Purpose: turn a CS question into a verified, plain-English diagnosis.
   - The agent writes as a member of `sr_auditor`, which can only insert into and read the audit tables. `make db-auditor` creates its login from `SRA_AUDIT_DATABASE_URL`.
   - `sr_reader` (the MCP server) cannot read the audit.
 - **`AuditStore`** (`sr_agent.audit`) has a Postgres implementation and an in-memory one, for tests and for the HTTP API without an audit database. `sra ask` audits each run when `SRA_AUDIT_DATABASE_URL` is set.
-- **Cost per diagnosis** (`AgentRun.cost_usd`, `sr_agent.pricing`, list prices) prices each turn by the model that served it, so a fallback turn costs what it really costs. A model with no price gives no estimate rather than a wrong one. The eval reports use the same figure.
+- **Cost per diagnosis** (`AgentRun.cost_usd`, `sr_agent.pricing`, list prices) prices each turn by the model that served it, so a fallback turn costs what it really costs. A model with no price gives no estimate rather than a wrong one. The eval reports use the same figure. A reply can name a dated snapshot (`claude-haiku-4-5-20251001`) for an alias request; it is priced as its alias (TE3).
 
 **HTTP API (T5.4)**
 
@@ -870,6 +870,7 @@ Purpose: measure every change from the first agent onwards and catch regressions
   - `sr-evals run --compare-to <report>` compares with a named run instead of the latest one.
   - `sr-evals compare A B` sets two reports side by side, configurations included, with the verdict.
   - `sr-evals rescore R` scores R's stored answers again with today's scorers, with no model and no database, and writes `R-rescored`, compared with R. A scorer fix never needs a paid re-run.
+  - `sr-evals inspect R` (or a file from `sra ask --json`) prints one row per run: turns, tools, thinking blocks and how many have text, cache reads per turn, repairs, wrap-ups, the models that served it, tokens, cost and time. These are TE3's checks, read from the runs rather than by hand. A turn served by another model is a fallback; a dated snapshot of the same model is not.
 
 **Model-graded rubric (TE2)**
 

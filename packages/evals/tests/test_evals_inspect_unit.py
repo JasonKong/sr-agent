@@ -8,7 +8,7 @@ import pytest
 
 from sr_agent.loop import AgentRun, Limits, run_agent
 from sr_agent.model import Block, ModelReply, TokenUsage
-from sr_agent.testing import FakeModel, FakeToolbox, answer, reply, thinking, tool_use
+from sr_agent.testing import FakeModel, FakeToolbox, answer, reply, text, thinking, tool_use
 from sr_agent.toolbox import ToolOutcome
 from sr_evals.inspect import check_run, render_checks
 
@@ -113,3 +113,16 @@ def test_inspect_reads_a_reports_stored_runs_and_a_single_run_file(
     single.write_text(json.dumps(stored))
     assert main(["inspect", str(single)]) == 0
     assert "| ask | answered |" in capsys.readouterr().out
+
+
+def test_a_limit_with_no_usable_answer_is_not_a_wrap_up() -> None:
+    model = FakeModel(
+        turn(tool_use("get_referral", id="t1"), read=0),
+        turn(tool_use("get_referral", id="t2"), read=10),
+        turn(text("Not an answer."), read=10),  # the closing turn gives no answer
+        turn(text("Still not."), read=10),  # nor does a repair, if one is asked for
+    )
+    check = check_run("F07-1", run(model, max_tool_calls=1), requested="claude-opus-5-5")
+
+    assert check.outcome == "tool_limit"
+    assert check.wrap_up is False

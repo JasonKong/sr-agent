@@ -25,6 +25,7 @@ uv run sr-evals run --cases smoke --max-cost-usd 5   # eval: 12 cases (or all, o
 uv run sr-evals run --dry-run       # the same pipeline with an oracle model: free, must score 100%
 uv run sr-evals compare A B         # two reports side by side, with the sign-test verdict
 uv run sr-evals rescore R           # score R's stored answers again (no model, no database)
+uv run sr-evals inspect R           # per run: thinking, cache reads, repairs, wrap-ups, tokens, cost
 uv run sr-evals grade R --batch     # the model-graded rubric on R's answers (needs a key; --dry-run is free)
 uv run sr-evals calibrate           # the grader against labelled answers (needs a key; --dry-run is free)
 uv run sr-evals retrieval           # retrieval experiments (embedders x chunk sizes x modes) on scratch DBs
