@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import copy
 import itertools
+import json
 from collections.abc import Callable, Mapping
 from typing import Any
 
@@ -48,6 +49,35 @@ def reply(
     return ModelReply(
         content=list(blocks), stop_reason=stop_reason, usage=usage or TokenUsage(), model=model
     )
+
+
+def diagnosis_json(
+    *,
+    summary: str = "The clinic's PMS token expired, so the push into its system failed.",
+    root_cause_code: str | None = "F07_CLINIC_PMS_AUTH_FAILED",
+    confidence: str = "high",
+    evidence: list[tuple[str, str]] | None = None,
+    recommended_action: str = "Ask the clinic to re-authorise its PMS connection, then resend.",
+    draft_customer_reply: str | None = None,
+    escalate_to_engineering: bool = False,
+) -> str:
+    """An answer in the model's output schema; evidence is (record_id, detail) pairs."""
+    return json.dumps(
+        {
+            "summary": summary,
+            "root_cause_code": root_cause_code,
+            "confidence": confidence,
+            "evidence": [{"record_id": rid, "detail": detail} for rid, detail in evidence or []],
+            "recommended_action": recommended_action,
+            "draft_customer_reply": draft_customer_reply,
+            "escalate_to_engineering": escalate_to_engineering,
+        }
+    )
+
+
+def answer(**fields: Any) -> ModelReply:
+    """A final reply carrying a diagnosis (see `diagnosis_json` for the fields)."""
+    return reply(text(diagnosis_json(**fields)))
 
 
 Step = ModelReply | Callable[[ModelRequest], ModelReply]

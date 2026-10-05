@@ -5,7 +5,7 @@ happens. `--json` prints the whole run record instead of the answer. The MCP ser
 be running over HTTP (`make mcp-http`).
 
 Exit codes: 0 answered, 1 a service is unavailable, 2 a usage or configuration error,
-3 the run stopped without an answer (a limit, a refusal).
+3 the run is incomplete (a limit, a refusal); a partial answer is still printed.
 """
 
 from __future__ import annotations
@@ -21,6 +21,7 @@ from typing import TextIO, get_args
 from pydantic import ValidationError
 
 from sr_agent.anthropic_model import AnthropicModel
+from sr_agent.diagnosis import Diagnosis
 from sr_agent.loop import (
     AgentEvent,
     AgentRun,
@@ -42,6 +43,28 @@ Connect = Callable[[str, str], AbstractAsyncContextManager[Toolbox]]
 def _tokens(usage: TokenUsage) -> str:
     sent = usage.input_tokens + usage.cache_creation_input_tokens + usage.cache_read_input_tokens
     return f"{sent:,} in ({usage.cache_read_input_tokens:,} cached) / {usage.output_tokens:,} out"
+
+
+def render(diagnosis: Diagnosis, outcome: str) -> str:
+    """The diagnosis as a CS team member reads it."""
+    lines = [] if outcome == "answered" else [f"INCOMPLETE ({outcome}): a partial answer.", ""]
+    code = diagnosis.root_cause_code or "not enough evidence"
+    lines += [
+        diagnosis.summary,
+        "",
+        f"Root cause: {code} (confidence: {diagnosis.confidence})",
+        "Evidence:",
+    ]
+    lines += [
+        f"  - {e.record_id} ({e.record_type}, {e.system}): {e.detail}" for e in diagnosis.evidence
+    ] or ["  (none)"]
+    lines += [
+        f"Next step: {diagnosis.recommended_action}",
+        f"Escalate to engineering: {'yes' if diagnosis.escalate_to_engineering else 'no'}",
+    ]
+    if diagnosis.draft_customer_reply:
+        lines += ["", "Draft reply:", diagnosis.draft_customer_reply]
+    return "\n".join(lines)
 
 
 class Trace:
@@ -145,6 +168,6 @@ def main(
 
     if args.json:
         print(run.model_dump_json(indent=2))
-    elif run.answer:
-        print(run.answer)
+    elif run.diagnosis is not None:
+        print(render(run.diagnosis, run.outcome))
     return 0 if run.outcome == "answered" else 3

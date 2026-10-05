@@ -3,7 +3,10 @@
 Request choices, for Claude Opus 5.5 and its peers:
 - Thinking is always on and is not configured here; `effort` is the control (the API
   default for Opus 5.5 is medium, so it is always sent explicitly).
-- `tool_choice` stays at its default, `auto`: forcing a tool call is rejected.
+- `tool_choice` stays at its default, `auto`, since forcing a tool call is rejected; the
+  wrap-up turn after a limit sends `none`.
+- The answer schema goes in `output_config.format` (structured outputs) on every request,
+  so it is part of the stable, cached request.
 - Automatic prompt caching (`cache_control` at the top level) caches the longest stable
   prefix of each request: the tool definitions, the system prompt and the history so far.
 - Server-side refusal fallback is on by default: if a safety classifier declines a request,
@@ -17,7 +20,7 @@ from typing import Any, cast
 
 import anthropic
 from anthropic import AsyncAnthropic, omit
-from anthropic.types.beta import BetaMessageParam, BetaToolUnionParam
+from anthropic.types.beta import BetaMessageParam, BetaOutputConfigParam, BetaToolUnionParam
 
 from sr_agent.model import Effort, ModelReply, ModelRequest, ModelUnavailable, TokenUsage
 
@@ -57,6 +60,12 @@ class AnthropicModel:
     def name(self) -> str:
         return self._model
 
+    def _output_config(self, request: ModelRequest) -> BetaOutputConfigParam:
+        config: BetaOutputConfigParam = {"effort": self._effort}
+        if request.output_schema is not None:
+            config["format"] = {"type": "json_schema", "schema": request.output_schema}
+        return config
+
     async def complete(self, request: ModelRequest) -> ModelReply:
         try:
             message = await self.client.beta.messages.create(
@@ -65,7 +74,8 @@ class AnthropicModel:
                 system=[{"type": "text", "text": request.system}],
                 tools=cast("list[BetaToolUnionParam]", request.tools),
                 messages=cast("list[BetaMessageParam]", request.messages),
-                output_config={"effort": self._effort},
+                output_config=self._output_config(request),
+                tool_choice={"type": "none"} if request.tool_choice == "none" else omit,
                 cache_control={"type": "ephemeral"},
                 betas=[FALLBACK_BETA] if self._fallback else omit,
                 fallbacks="default" if self._fallback else omit,

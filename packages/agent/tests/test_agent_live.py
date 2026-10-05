@@ -29,8 +29,8 @@ def test_a_real_model_uses_a_tool_and_answers_with_a_cached_prefix() -> None:
     async def ask() -> AgentRun:
         async with open_toolbox(Client(create_server(fake_deps()))) as toolbox:
             return await run_agent(
-                "Which referrals failed in the last 24 hours? Check with the tools, then answer "
-                "in one sentence.",
+                "Which referrals failed in the last 24 hours? Check with the tools before you "
+                "answer.",
                 model=model,
                 toolbox=toolbox,
                 limits=Limits(max_tool_calls=4, time_limit_s=120),
@@ -39,7 +39,7 @@ def test_a_real_model_uses_a_tool_and_answers_with_a_cached_prefix() -> None:
     run = asyncio.run(ask())
 
     assert run.outcome == "answered", run.model_dump_json(indent=2)
-    assert run.answer
+    assert run.diagnosis is not None  # structured output, checked by the loop
     assert run.turns >= 2  # a tool call, then the answer: thinking blocks were replayed
     assert any(c.name == "list_failed_referrals" for c in run.tool_calls)
     assert run.usage.cache_read_input_tokens > 0  # the second turn read the cached prefix

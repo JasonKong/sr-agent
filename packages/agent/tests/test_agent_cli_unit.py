@@ -12,7 +12,7 @@ from sr_agent.cli import main
 from sr_agent.loop import AgentRun
 from sr_agent.model import ModelUnavailable
 from sr_agent.settings import AgentSettings
-from sr_agent.testing import FakeModel, reply, text, tool_use
+from sr_agent.testing import FakeModel, answer, reply, tool_use
 from sr_agent.toolbox import McpToolbox, ToolsUnavailable, open_toolbox
 from sr_mcp.server import create_server
 from sr_mcp.testing import fake_deps
@@ -36,7 +36,12 @@ async def in_process(url: str, token: str) -> AsyncIterator[McpToolbox]:
 def script() -> FakeModel:
     return FakeModel(
         reply(tool_use("list_failed_referrals", hours=24)),
-        reply(text("No referrals failed in the last day.")),
+        answer(
+            summary="No referrals failed in the last day.",
+            root_cause_code=None,
+            confidence="medium",
+            draft_customer_reply="Nothing failed today.",
+        ),
     )
 
 
@@ -45,7 +50,9 @@ def test_ask_prints_the_answer_and_a_trace(capsys: pytest.CaptureFixture[str]) -
 
     out, err = capsys.readouterr()
     assert code == 0
-    assert out.strip() == "No referrals failed in the last day."
+    assert out.startswith("No referrals failed in the last day.")
+    assert "Root cause: not enough evidence (confidence: medium)" in out
+    assert "Draft reply:\nNothing failed today." in out
     assert "list_failed_referrals" in err
     assert '"hours": 24' in err
     assert "answered" in err
@@ -60,15 +67,18 @@ def test_json_prints_the_whole_run(capsys: pytest.CaptureFixture[str]) -> None:
     assert run.outcome == "answered"
     assert run.question == "Anything fail today?"
     assert [c.name for c in run.tool_calls] == ["list_failed_referrals"]
+    assert run.diagnosis is not None
+    assert run.diagnosis.summary == "No referrals failed in the last day."
 
 
 def test_an_incomplete_run_says_why_and_exits_3(capsys: pytest.CaptureFixture[str]) -> None:
-    model = FakeModel(*[reply(tool_use("list_failed_referrals")) for _ in range(3)])
+    model = FakeModel(*[reply(tool_use("list_failed_referrals")) for _ in range(3)], answer())
     code = main(["ask", "q", "--max-tool-calls", "2"], model=model, connect=in_process)
 
     out, err = capsys.readouterr()
     assert code == 3
-    assert out == ""
+    assert out.startswith("INCOMPLETE (tool_limit)")
+    assert "Root cause: F07_CLINIC_PMS_AUTH_FAILED" in out
     assert "tool_limit" in err
 
 

@@ -1,6 +1,7 @@
 """AnthropicModel through the real SDK over an httpx2 MockTransport (no network, no key)."""
 
 import asyncio
+import dataclasses
 import json
 from collections.abc import Callable
 from pathlib import Path
@@ -20,11 +21,18 @@ TOOLS = [
         "input_schema": {"type": "object", "properties": {"referral_id": {"type": "string"}}},
     }
 ]
+SCHEMA = {
+    "type": "object",
+    "properties": {"summary": {"type": "string"}},
+    "required": ["summary"],
+    "additionalProperties": False,
+}
 REQUEST = ModelRequest(
     system="You are SR-Agent.",
     tools=TOOLS,
     messages=[{"role": "user", "content": "Why?"}],
     max_tokens=16000,
+    output_schema=SCHEMA,
 )
 REPLY_BODY: dict[str, Any] = {
     "id": "msg_1",
@@ -96,10 +104,22 @@ def test_the_request_carries_the_model_settings_and_caching() -> None:
     assert body["system"] == [{"type": "text", "text": "You are SR-Agent."}]
     assert body["tools"] == TOOLS
     assert body["messages"] == REQUEST.messages
-    assert body["output_config"] == {"effort": "medium"}
+    assert body["output_config"] == {
+        "effort": "medium",
+        "format": {"type": "json_schema", "schema": SCHEMA},
+    }
     assert body["cache_control"] == {"type": "ephemeral"}
     assert "thinking" not in body  # always on for Opus 5.5; effort is the control
     assert "tool_choice" not in body  # forced tool use is rejected; auto is the default
+
+
+def test_the_wrap_up_turn_forbids_tool_calls() -> None:
+    recorder = Recorder()
+    model = model_with(recorder)
+    asyncio.run(model.complete(dataclasses.replace(REQUEST, tool_choice="none")))
+
+    assert recorder.body["tool_choice"] == {"type": "none"}
+    assert recorder.body["tools"] == TOOLS  # the tool list never changes during a run
 
 
 def test_refusal_fallback_is_on_by_default_and_can_be_turned_off() -> None:

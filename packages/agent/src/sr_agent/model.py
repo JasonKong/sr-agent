@@ -58,6 +58,10 @@ class ModelRequest:
     tools: list[dict[str, Any]]
     messages: list[Message]
     max_tokens: int
+    # JSON schema the final text answer must follow (structured outputs), if any.
+    output_schema: dict[str, Any] | None = None
+    # "none" asks for an answer without further tool calls (the wrap-up after a limit).
+    tool_choice: Literal["auto", "none"] = "auto"
 
 
 class ToolUse(BaseModel):
