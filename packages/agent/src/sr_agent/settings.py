@@ -28,11 +28,18 @@ class AgentSettings(BaseSettings):
     anthropic_api_key: SecretStr | None = Field(default=None, validation_alias="ANTHROPIC_API_KEY")
     # Where each diagnosis is audited, as a member of sr_auditor (`make db-auditor`).
     audit_database_url: SecretStr | None = None
+    # `sra serve`: the bearer token callers must send (unset: no token), how many diagnoses
+    # may run at once, and browser origins allowed to call it directly (comma separated).
+    api_token: SecretStr | None = None
+    api_max_concurrent: int = Field(default=2, ge=1)
+    api_cors_origins: str = ""
     max_tool_calls: int = Field(default=8, ge=1)
     time_limit_s: float = Field(default=60.0, gt=0)
     token_budget: int = Field(default=200_000, ge=1_000)
 
-    @field_validator("mcp_token", "anthropic_api_key", "audit_database_url", mode="before")
+    @field_validator(
+        "mcp_token", "anthropic_api_key", "audit_database_url", "api_token", mode="before"
+    )
     @classmethod
     def _empty_is_unset(cls, value: object) -> object:
         return None if value == "" else value

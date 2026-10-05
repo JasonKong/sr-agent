@@ -5,10 +5,12 @@ description = "Diagnosis agent that explains why a referral failed, with evidenc
 requires-python = ">=3.12"
 dependencies = [
     "anthropic>=1.11,<2",
+    "fastapi>=0.120",
     "httpx2>=2.13",
     "mcp>=2.3,<2.4",
     "pydantic-settings>=2.15.0",
     "sr-db",
+    "uvicorn>=0.54.0",
 ]
 
 [project.scripts]
