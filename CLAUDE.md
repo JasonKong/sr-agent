@@ -18,11 +18,13 @@ uv run sra ask "Why didn't the specialist get GR-11854?"  # the agent; needs mak
 uv run sim case F07_CLINIC_PMS_AUTH_FAILED  # one labelled case with its evidence ids (no DB needed)
 uv run sim case F00_NO_FAULT --distractor recovered_pms_auth  # a case with a distractor
 uv run sr-evals build          # rebuild the frozen eval dataset (packages/evals/datasets/v1.json)
+uv run sr-evals run --cases smoke   # eval: 12 cases (or all, or ids); needs make seed, make mcp-http and a key
+uv run sr-evals run --dry-run       # the same pipeline with an oracle model: free, must score 100%
 make test-integration          # tests marked integration, against the local Postgres
 uv run pytest -m live          # tests that call a real model API (skipped by default)
 ```
 
-CI (`.github/workflows/ci.yml`) runs `make check` and, against a Postgres service container, `make migrate` and `make test-integration` on every pull request. Actions are pinned to commit SHAs; keep the `# vX.Y.Z` comment next to each SHA. Run `actionlint` after editing workflows.
+CI (`.github/workflows/ci.yml`) runs `make check` and, against a Postgres service container, `make migrate` and `make test-integration` on every pull request. `.github/workflows/eval.yml` runs the eval smoke set on a manual trigger or a push to `main` (never on pull requests), using the `ANTHROPIC_API_KEY` secret. Actions are pinned to commit SHAs; keep the `# vX.Y.Z` comment next to each SHA. Run `actionlint` after editing workflows.
 
 ## Layout
 

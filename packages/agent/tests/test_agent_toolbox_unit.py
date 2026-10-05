@@ -8,7 +8,7 @@ import pytest
 from mcp import Client
 
 from sr_agent.model import ModelUnavailable
-from sr_agent.toolbox import McpToolbox, ToolOutcome, open_toolbox
+from sr_agent.toolbox import McpToolbox, ToolOutcome, open_toolbox, without
 from sr_mcp.server import INSTRUCTIONS, create_server
 from sr_mcp.testing import fake_deps
 
@@ -89,3 +89,21 @@ def test_exceptions_from_the_caller_come_out_unwrapped() -> None:
 
     with pytest.raises(ModelUnavailable, match="refused the API key"):
         with_toolbox(fail)
+
+
+def test_a_toolbox_can_hide_tools_for_an_ablation() -> None:
+    async def hidden(toolbox: McpToolbox) -> Any:
+        smaller = without(toolbox, {"search_logs", "no_such_tool"})
+        names = [d["name"] for d in smaller.specs()]
+        refused = await smaller.call("search_logs", {"referral_id": "GR-1"})
+        allowed = await smaller.call("list_failed_referrals", {})
+        return names, refused, allowed, smaller.instructions
+
+    names, refused, allowed, instructions = with_toolbox(hidden)
+
+    assert "search_logs" not in names
+    assert "get_referral" in names
+    assert refused.is_error
+    assert "not available" in refused.text
+    assert not allowed.is_error
+    assert instructions == INSTRUCTIONS

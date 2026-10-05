@@ -1,0 +1,82 @@
+name: Eval smoke
+
+# The 12-case smoke set (one case per root-cause code), against the real model API.
+# It runs on a manual trigger or a push to main, never on pull requests, so a fork can
+# never reach the API key. Without the ANTHROPIC_API_KEY secret, it runs the oracle dry
+# run instead, which checks the whole pipeline at no cost.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eval-smoke
+  cancel-in-progress: false
+
+env:
+  UV_LOCKED: "1"
+
+jobs:
+  smoke:
+    name: Smoke eval (12 cases)
+    if: github.repository == 'JasonKong/sr-agent'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: sr
+          POSTGRES_PASSWORD: sr_ci_only
+          POSTGRES_DB: sr_agent
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sr -d sr_agent"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      DATABASE_URL: postgresql://sr:sr_ci_only@localhost:5432/sr_agent
+      MCP_DATABASE_URL: postgresql://sr_mcp:sr_mcp_ci_only@localhost:5432/sr_agent
+      MCP_MASK_SALT: ci-only-salt
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          enable-cache: true
+      - run: uv sync
+      - run: make migrate
+      - run: make db-roles
+      - run: make seed
+      - name: Start the MCP server over HTTP
+        run: |
+          token="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+          echo "::add-mask::${token}"
+          echo "MCP_HTTP_TOKEN=${token}" >> "$GITHUB_ENV"
+          MCP_HTTP_TOKEN="${token}" nohup uv run sr-mcp --transport http > var/mcp-http.log 2>&1 &
+          for _ in $(seq 1 60); do
+            curl -sf http://127.0.0.1:8765/healthz && exit 0
+            sleep 1
+          done
+          cat var/mcp-http.log
+          exit 1
+      - name: Smoke eval against the model API
+        if: env.ANTHROPIC_API_KEY != ''
+        run: uv run sr-evals run --cases smoke --label ci --reports-dir var/evals/reports
+      - name: Oracle dry run (no API key configured)
+        if: env.ANTHROPIC_API_KEY == ''
+        run: uv run sr-evals run --cases smoke --dry-run --label ci
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: eval-smoke-report
+          path: var/evals/
+          retention-days: 30
