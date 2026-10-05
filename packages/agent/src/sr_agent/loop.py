@@ -33,7 +33,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, computed_field
 
-from sr_agent.diagnosis import Diagnosis, check_answer, ids_in, model_output_schema
+from sr_agent.diagnosis import AnswerCheck, Diagnosis, check_answer, ids_in, model_output_schema
 from sr_agent.model import (
     Block,
     Message,
@@ -44,6 +44,7 @@ from sr_agent.model import (
     ToolUse,
 )
 from sr_agent.prompts import PROMPT_VERSION, build_system_prompt
+from sr_agent.safety import clinical_advice, mask_identifiers, scrub_question
 from sr_agent.toolbox import Toolbox
 
 Limit = Literal["tool_limit", "time_limit", "token_limit"]
@@ -98,6 +99,9 @@ class AgentRun(BaseModel):
     turns: int
     repairs: int  # answers sent back for correction
     dropped_evidence: list[str]  # cited ids that never resolved, removed from the diagnosis
+    question_redactions: int  # patient identifiers masked in the question before the model
+    output_redactions: int  # patient identifiers masked in the answer
+    safety_flags: list[str]  # clinical advice still present after the repair turn
     tool_calls: list[ToolCallRecord]
     usage: TokenUsage
     duration_ms: float
@@ -234,16 +238,22 @@ async def run_agent(
         toolbox.instructions, {t["name"] for t in tools}, version=prompt_version
     )
     schema = model_output_schema()
+    question, question_redactions = scrub_question(question)
     messages: list[Message] = [{"role": "user", "content": question}]
     usage = TokenUsage()
     calls: list[ToolCallRecord] = []
     served_by: list[str] = []
     seen: set[str] = set()  # evidence ids that appeared in successful tool results
     dropped: list[str] = []
+    flags: list[str] = []
     repairs = 0
+    output_redactions = 0
     observe(RunStarted(run_id, model.name, limits))
 
     def finish(outcome: Outcome, diagnosis: Diagnosis | None = None) -> AgentRun:
+        nonlocal output_redactions
+        if diagnosis is not None:
+            diagnosis, output_redactions = mask_identifiers(diagnosis)
         run = AgentRun(
             run_id=run_id,
             question=question,
@@ -255,6 +265,9 @@ async def run_agent(
             turns=len(served_by),
             repairs=repairs,
             dropped_evidence=dropped,
+            question_redactions=question_redactions,
+            output_redactions=output_redactions,
+            safety_flags=flags,
             tool_calls=calls,
             usage=usage,
             duration_ms=round((clock() - started) * 1000, 1),
@@ -316,14 +329,25 @@ async def run_agent(
             "is_error": outcome.is_error,
         }
 
+    def settle(outcome: Outcome, check: AnswerCheck, advice: list[str]) -> AgentRun:
+        """Accept an answer as it is: drop unresolved evidence and an advising draft."""
+        if check.diagnosis is None:
+            return finish("invalid_output" if outcome == "answered" else outcome)
+        dropped.extend(check.unresolved)
+        flags.extend(advice)
+        diagnosis = check.diagnosis
+        if any(f.startswith("draft_customer_reply:") for f in advice):
+            diagnosis = diagnosis.model_copy(update={"draft_customer_reply": None})
+        return finish(outcome, diagnosis)
+
     async def wrap_up(limit: Limit) -> AgentRun:
         messages.append(_closing(limit, messages[-1]))
         reply = await ask("none", limits.wrap_up_s)
         if reply is None or reply.stop_reason != "end_turn":
             return finish(limit)
         check = check_answer(reply.text(), seen=seen)
-        dropped.extend(check.unresolved)
-        return finish(limit, check.diagnosis)
+        advice = clinical_advice(check.diagnosis) if check.diagnosis else []
+        return settle(limit, check, advice)
 
     while True:
         if time_left() <= 0:
@@ -338,16 +362,20 @@ async def run_agent(
         match reply.stop_reason:
             case "end_turn":
                 check = check_answer(reply.text(), seen=seen)
-                if not check.problems:
+                advice = clinical_advice(check.diagnosis) if check.diagnosis else []
+                problems = list(check.problems)
+                if advice:
+                    problems.append(
+                        "the answer gives clinical advice, which is out of scope and must be "
+                        "removed (" + "; ".join(advice) + ")"
+                    )
+                if not problems:
                     return finish("answered", check.diagnosis)
                 if repairs < limits.max_repairs:
                     repairs += 1
-                    messages.append(_repair(check.problems))
+                    messages.append(_repair(problems))
                     continue
-                if check.diagnosis is None:
-                    return finish("invalid_output")
-                dropped.extend(check.unresolved)
-                return finish("answered", check.diagnosis)
+                return settle("answered", check, advice)
             case "max_tokens":
                 return finish("max_tokens")
             case "refusal":

@@ -9,10 +9,11 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import re
 from enum import StrEnum
 
-REDACTED = "[REDACTED]"
+from sr_db.privacy import REDACTED, scrub_text
+
+__all__ = ["REDACTED", "FieldStatus", "patient_ref", "scrub", "scrub_text"]
 
 
 class FieldStatus(StrEnum):
@@ -25,23 +26,6 @@ def patient_ref(patient_id: str, salt: str) -> str:
     """A stable, non-reversible reference such as `PT-3f9a1c`."""
     digest = hmac.new(salt.encode(), patient_id.encode(), hashlib.sha256).hexdigest()
     return f"PT-{digest[:6]}"
-
-
-_PATTERNS = [
-    re.compile(r"\bSIM\d{4}\b"),  # synthetic NHI
-    re.compile(r"\b[A-HJ-NP-Z]{3}\d{4}\b"),  # NHI, old format (letters never I or O)
-    re.compile(r"\b[A-HJ-NP-Z]{3}\d{2}[A-HJ-NP-Z]{2}\b"),  # NHI, new format
-    # Dates written day first, as a PMS stores dates of birth. ISO timestamps are untouched.
-    re.compile(r"\b(?:0[1-9]|[12]\d|3[01])[-/.](?:0[1-9]|1[0-2])[-/.](?:19|20)\d{2}\b"),
-]
-
-
-def scrub_text(text: str) -> tuple[str, int]:
-    hits = 0
-    for pattern in _PATTERNS:
-        text, count = pattern.subn(REDACTED, text)
-        hits += count
-    return text, hits
 
 
 def scrub(value: object) -> tuple[object, int]:

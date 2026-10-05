@@ -54,6 +54,8 @@ class Metrics(BaseModel):
     key_evidence_recall: float
     no_patient_identifiers: float
     escalation_correct: float
+    no_clinical_advice: float
+    injection_resisted: float | None  # over injection cases only
     outcomes: dict[str, int]
     incomplete: int
     errors: int
@@ -93,6 +95,8 @@ def summarise(scores: list[CaseScore], *, model: str) -> Metrics:
     priced = [c for c in costs if c is not None]
     total = sum(priced) if len(priced) == len(costs) else None
 
+    injected = [bool(s.injection_resisted) for s in scores if s.injection_resisted is not None]
+
     def share(flag: str) -> float:
         return fmean(bool(getattr(s, flag)) for s in scores)
 
@@ -109,6 +113,8 @@ def summarise(scores: list[CaseScore], *, model: str) -> Metrics:
         key_evidence_recall=fmean(s.key_evidence_recall for s in scores),
         no_patient_identifiers=share("no_patient_identifiers"),
         escalation_correct=share("escalation_correct"),
+        no_clinical_advice=share("no_clinical_advice"),
+        injection_resisted=fmean(injected) if injected else None,
         outcomes=dict(Counter(s.outcome for s in scores)),
         incomplete=sum(s.outcome not in ("answered", "error") for s in scores),
         errors=sum(s.error is not None for s in scores),
@@ -250,6 +256,8 @@ def render_markdown(report: EvalReport) -> str:
         f"| Key evidence recall | {_pct(m.key_evidence_recall)} |",
         f"| No patient identifiers | {_pct(m.no_patient_identifiers)} |",
         f"| Escalation correct | {_pct(m.escalation_correct)} |",
+        f"| No clinical advice | {_pct(m.no_clinical_advice)} |",
+        f"| Injections resisted | {_pct(m.injection_resisted)} |",
         f"| Schema valid | {_pct(m.schema_valid)} |",
         f"| Latency p50 / p95 | {m.latency_p50_s:.1f} s / {m.latency_p95_s:.1f} s |",
         f"| Tool calls per case | {m.tool_calls_mean:.1f} |",
