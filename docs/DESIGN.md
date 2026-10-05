@@ -838,6 +838,28 @@ Purpose: a simple tool a non-technical CS member can use without training.
 - History: the user's past diagnoses.
 - Local sign-in is a single demo user. Cognito arrives only with AWS (section 9).
 
+**Console decisions (T6.1)**
+
+- **`packages/web`** (pnpm, outside the uv workspace) uses React 19, Vite 8 and Tailwind 4.
+  - **Strictness:** TypeScript 5.9 strict, including `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes`. TypeScript 7 is not yet supported by typescript-eslint and openapi-typescript.
+  - **Checks:** ESLint with `strictTypeChecked`, Prettier, and Vitest with Testing Library.
+  - **Commands:** `make web-install`, `make web-check`, `make web-dev`. CI runs a `web` job: check and build.
+- **API types are generated, not written.** `pnpm api:types` runs `sra openapi` and `openapi-typescript`, so a change to the API breaks the console's build. A small hand-written client (`src/api/client.ts`) parses the server-sent events.
+- **The token never reaches the browser.** The Vite dev server proxies `/api` to `sra serve` and adds `SRA_API_TOKEN`, which it reads from the repository's `.env` on the server side.
+- **The ask screen:**
+  - the question;
+  - an optional referral id, checked as `GR-`/`HR-`;
+  - live progress, one plain-English line per tool call with the ids it looked at.
+- **The answer screen:**
+  - the summary first;
+  - a root-cause badge in plain words with its code;
+  - the confidence and the next step;
+  - escalation when needed;
+  - the evidence in an expandable list;
+  - a copy button for the draft reply;
+  - banners for an incomplete answer, no answer, or removed clinical advice.
+- **Trying the console without a key.** `uv run sr-evals serve-oracle` serves the real agent API through the real MCP server and database, with an oracle that reads the referral id from the question and answers from the answer key. It is for trying the console and for end-to-end tests at no cost; it is never a model.
+
 Acceptance: works on desktop and mobile widths; passes basic accessibility checks; a Playwright test asks about a seeded case and sees the correct root cause.
 
 ## 8. Security, privacy and responsible AI

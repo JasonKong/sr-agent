@@ -22,6 +22,8 @@ from pathlib import Path
 from typing import get_args
 
 from sr_agent.anthropic_model import AnthropicModel
+from sr_agent.api import create_app
+from sr_agent.audit import MemoryAudit
 from sr_agent.loop import Limits
 from sr_agent.model import Effort, ModelClient, ModelUnavailable
 from sr_agent.prompts import PROMPT_VERSIONS
@@ -45,7 +47,7 @@ from sr_evals.dataset import (
     write_dataset,
 )
 from sr_evals.experiments import Config, render_experiments, run_experiments
-from sr_evals.oracle import OracleModel
+from sr_evals.oracle import OracleModel, QuestionOracle
 from sr_evals.report import REPORTS_DIR, EvalReport, compare, find_previous, summarise, write_report
 from sr_evals.retrieval import load_queries
 from sr_evals.runner import CaseResult, run_cases
@@ -104,18 +106,7 @@ def _run(args: argparse.Namespace, connect: Connect) -> int:
     except ValueError as error:
         print(f"sr-evals: {error}", file=sys.stderr)
         return 2
-    if not args.labels.exists():
-        print(
-            f"sr-evals: {args.labels} not found: seed the default world with `make seed`",
-            file=sys.stderr,
-        )
-        return 2
-    seeded = json.loads(args.labels.read_text()).get("config")
-    if seeded != dataset.world:
-        print(
-            "sr-evals: the seeded world is not the dataset's world: re-seed with `make seed`",
-            file=sys.stderr,
-        )
+    if not _seeded_world_matches(dataset, args.labels):
         return 2
     settings = AgentSettings()
     if settings.mcp_token is None:
@@ -244,6 +235,52 @@ def _run(args: argparse.Namespace, connect: Connect) -> int:
     return 0
 
 
+def _seeded_world_matches(dataset: Dataset, labels: Path) -> bool:
+    if not labels.exists():
+        print(
+            f"sr-evals: {labels} not found: seed the default world with `make seed`",
+            file=sys.stderr,
+        )
+        return False
+    if json.loads(labels.read_text()).get("config") != dataset.world:
+        print(
+            "sr-evals: the seeded world is not the dataset's world: re-seed with `make seed`",
+            file=sys.stderr,
+        )
+        return False
+    return True
+
+
+def _serve_oracle(args: argparse.Namespace) -> int:
+    import uvicorn
+
+    dataset = load_dataset(args.dataset)
+    if not _seeded_world_matches(dataset, args.labels):
+        return 2
+    settings = AgentSettings()
+    if settings.mcp_token is None:
+        print(
+            "sr-evals: set MCP_HTTP_TOKEN (the MCP server's bearer token) in .env",
+            file=sys.stderr,
+        )
+        return 2
+    oracle = QuestionOracle(world_for(dataset))
+    app = create_app(
+        model_for=lambda: oracle,
+        connect=connect_http,
+        audit=MemoryAudit(),
+        mcp_url=settings.mcp_url,
+        mcp_token=settings.mcp_token.get_secret_value(),
+        api_token=settings.api_token.get_secret_value() if settings.api_token else None,
+    )
+    print(
+        f"sr-evals: the agent API with an oracle model on http://{args.host}:{args.port}",
+        file=sys.stderr,
+    )
+    uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
+    return 0
+
+
 def _retrieval(args: argparse.Namespace) -> int:
     configs = [
         Config(embedder=e.strip(), chunk_chars=size)
@@ -308,7 +345,19 @@ def main(argv: list[str] | None = None, *, connect: Connect = connect_http) -> i
     retrieval.add_argument("--chunk-sizes", default="2000,400")
     retrieval.add_argument("--out-dir", type=Path, default=REPORTS_DIR / "retrieval")
 
+    serve = commands.add_parser(
+        "serve-oracle", help="the agent's HTTP API with an oracle model (for the console and e2e)"
+    )
+    serve.add_argument("--host", default="127.0.0.1")
+    serve.add_argument("--port", type=int, default=8766)
+    serve.add_argument("--dataset", type=Path, default=DATASET_V1)
+    serve.add_argument(
+        "--labels", type=Path, default=project_root() / "var" / "sim" / "labels.json"
+    )
+
     args = parser.parse_args(argv)
+    if args.command == "serve-oracle":
+        return _serve_oracle(args)
     if args.command == "build":
         return _build(args)
     if args.command == "retrieval":
