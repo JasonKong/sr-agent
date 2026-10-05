@@ -2,16 +2,20 @@
 
 Each turn sends the whole conversation to the model. If it asks for tools, the loop calls
 them through the toolbox, appends the results as one user message, and goes round again.
-It stops when the model answers, or when a limit is reached.
+It ends when the model gives an answer that passes the checks, or when a limit is reached.
 
 - **The history is append-only.** Every reply is appended exactly as received, thinking
   blocks included, and nothing earlier is ever edited. The model API rejects edited
   histories that carry thinking blocks, and an unchanged prefix is what prompt caching
   reuses.
+- **The answer is checked in code.** It must fit the schema, and each evidence id must
+  have appeared in a tool result in this run. A failing answer gets one repair turn that
+  says what is wrong. Evidence that still does not resolve is dropped and recorded.
 - **Limits belong to the loop**, because they are a policy for one diagnosis whatever the
-  model provider or transport: tool calls, wall-clock time and tokens. A batch of tool calls
-  that would go over the budget is not run at all. Every model and tool await runs under
-  `asyncio.timeout` with the time left, so retries inside the SDK cannot overrun it.
+  model provider or transport: tool calls, wall-clock time and tokens. Every model and tool
+  await runs under `asyncio.timeout` with the time left, so retries inside the SDK cannot
+  overrun it. On reaching a limit, one wrap-up turn without tools asks for the best answer
+  from the evidence so far; the run is marked incomplete either way.
 - **Failures of the services themselves** (the model API, the MCP server) are raised, not
   reported as an outcome: they say nothing about the referral.
 """
@@ -29,10 +33,20 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, computed_field
 
-from sr_agent.model import Block, Message, ModelClient, ModelRequest, TokenUsage, ToolUse
+from sr_agent.diagnosis import Diagnosis, check_answer, ids_in, model_output_schema
+from sr_agent.model import (
+    Block,
+    Message,
+    ModelClient,
+    ModelReply,
+    ModelRequest,
+    TokenUsage,
+    ToolUse,
+)
 from sr_agent.prompts import PROMPT_VERSION, build_system_prompt
 from sr_agent.toolbox import Toolbox
 
+Limit = Literal["tool_limit", "time_limit", "token_limit"]
 Outcome = Literal[
     "answered",
     "tool_limit",
@@ -40,9 +54,15 @@ Outcome = Literal[
     "token_limit",
     "max_tokens",  # the reply hit its own output limit
     "refused",
-    "no_answer",  # the model ended its turn without any text
+    "invalid_output",  # no answer fitting the schema, even after the repair turn
     "unexpected_stop",  # a stop reason or reply the loop cannot act on
 ]
+
+_LIMIT_NAMES: dict[Limit, str] = {
+    "tool_limit": "the tool-call limit",
+    "time_limit": "the time limit",
+    "token_limit": "the token budget",
+}
 
 
 @dataclass(frozen=True)
@@ -51,6 +71,8 @@ class Limits:
     time_limit_s: float = 60.0
     token_budget: int = 200_000  # every token processed in the run, cached or not
     max_tokens_per_reply: int = 16_000
+    wrap_up_s: float = 20.0  # extra time for the closing answer after a limit
+    max_repairs: int = 1
 
 
 DEFAULT_LIMITS = Limits()
@@ -68,12 +90,14 @@ class ToolCallRecord(BaseModel):
 class AgentRun(BaseModel):
     run_id: str
     question: str
-    answer: str | None
+    diagnosis: Diagnosis | None
     outcome: Outcome
     model: str  # requested
     served_by: list[str]  # the model that served each turn
     prompt_version: str
     turns: int
+    repairs: int  # answers sent back for correction
+    dropped_evidence: list[str]  # cited ids that never resolved, removed from the diagnosis
     tool_calls: list[ToolCallRecord]
     usage: TokenUsage
     duration_ms: float
@@ -150,9 +174,47 @@ def json_log(event: AgentEvent) -> None:
                 "outcome": run.outcome,
                 "turns": run.turns,
                 "tool_calls": len(run.tool_calls),
+                "repairs": run.repairs,
+                "dropped_evidence": len(run.dropped_evidence),
                 "duration_ms": run.duration_ms,
             } | run.usage.model_dump()
     print(json.dumps(record), file=sys.stderr, flush=True)
+
+
+def _repair(problems: list[str]) -> Message:
+    text = (
+        "Your answer could not be accepted: "
+        + "; ".join(problems)
+        + ". Reply again with the corrected answer. Cite only record ids that appear in "
+        "the tool results; call a tool first if you need to check a record."
+    )
+    return {"role": "user", "content": [{"type": "text", "text": text}]}
+
+
+def _closing(limit: Limit, last: Message) -> Message:
+    """The wrap-up prompt, answering any tool calls the limit stopped from running."""
+    name = _LIMIT_NAMES[limit]
+    blocks: list[Block] = []
+    if last["role"] == "assistant":
+        blocks += [
+            {
+                "type": "tool_result",
+                "tool_use_id": b["id"],
+                "content": f"Not run: {name} for this diagnosis was reached.",
+                "is_error": True,
+            }
+            for b in last["content"]
+            if b.get("type") == "tool_use" and "id" in b
+        ]
+    blocks.append(
+        {
+            "type": "text",
+            "text": f"You have reached {name} for this diagnosis. Do not call any more tools. "
+            "Answer now from the evidence you already have, and lower your confidence if it "
+            "does not settle the question.",
+        }
+    )
+    return {"role": "user", "content": blocks}
 
 
 async def run_agent(
@@ -168,22 +230,28 @@ async def run_agent(
     started = clock()
     system = build_system_prompt(toolbox.instructions)
     tools = toolbox.specs()
+    schema = model_output_schema()
     messages: list[Message] = [{"role": "user", "content": question}]
     usage = TokenUsage()
     calls: list[ToolCallRecord] = []
     served_by: list[str] = []
+    seen: set[str] = set()  # evidence ids that appeared in successful tool results
+    dropped: list[str] = []
+    repairs = 0
     observe(RunStarted(run_id, model.name, limits))
 
-    def finish(outcome: Outcome, answer: str | None = None) -> AgentRun:
+    def finish(outcome: Outcome, diagnosis: Diagnosis | None = None) -> AgentRun:
         run = AgentRun(
             run_id=run_id,
             question=question,
-            answer=answer,
+            diagnosis=diagnosis,
             outcome=outcome,
             model=model.name,
             served_by=served_by,
             prompt_version=PROMPT_VERSION,
             turns=len(served_by),
+            repairs=repairs,
+            dropped_evidence=dropped,
             tool_calls=calls,
             usage=usage,
             duration_ms=round((clock() - started) * 1000, 1),
@@ -195,9 +263,39 @@ async def run_agent(
     def time_left() -> float:
         return limits.time_limit_s - (clock() - started)
 
+    async def ask(tool_choice: Literal["auto", "none"], timeout: float) -> ModelReply | None:
+        """One model turn, appended to the history; None if it ran out of time."""
+        nonlocal usage
+        request = ModelRequest(
+            system=system,
+            tools=tools,
+            messages=messages,
+            max_tokens=limits.max_tokens_per_reply,
+            output_schema=schema,
+            tool_choice=tool_choice,
+        )
+        began = time.perf_counter()
+        try:
+            async with asyncio.timeout(timeout):
+                reply = await model.complete(request)
+        except TimeoutError:
+            return None
+        usage += reply.usage
+        served_by.append(reply.model)
+        messages.append({"role": "assistant", "content": reply.content})
+        duration = round((time.perf_counter() - began) * 1000, 1)
+        observe(
+            ModelCalled(
+                run_id, len(served_by), reply.stop_reason, reply.model, reply.usage, duration
+            )
+        )
+        return reply
+
     async def call(use: ToolUse, turn: int) -> Block:
         began = time.perf_counter()
         outcome = await toolbox.call(use.name, use.input)
+        if not outcome.is_error:
+            seen.update(ids_in(outcome.text))
         record = ToolCallRecord(
             turn=turn,
             name=use.name,
@@ -215,40 +313,38 @@ async def run_agent(
             "is_error": outcome.is_error,
         }
 
+    async def wrap_up(limit: Limit) -> AgentRun:
+        messages.append(_closing(limit, messages[-1]))
+        reply = await ask("none", limits.wrap_up_s)
+        if reply is None or reply.stop_reason != "end_turn":
+            return finish(limit)
+        check = check_answer(reply.text(), seen=seen)
+        dropped.extend(check.unresolved)
+        return finish(limit, check.diagnosis)
+
     while True:
         if time_left() <= 0:
-            return finish("time_limit")
+            return await wrap_up("time_limit")
         if usage.total >= limits.token_budget:
-            return finish("token_limit")
+            return await wrap_up("token_limit")
 
-        turn = len(served_by) + 1
-        request = ModelRequest(
-            system=system, tools=tools, messages=messages, max_tokens=limits.max_tokens_per_reply
-        )
-        began = time.perf_counter()
-        try:
-            async with asyncio.timeout(time_left()):
-                reply = await model.complete(request)
-        except TimeoutError:
-            return finish("time_limit")
-        usage += reply.usage
-        served_by.append(reply.model)
-        messages.append({"role": "assistant", "content": reply.content})
-        observe(
-            ModelCalled(
-                run_id,
-                turn,
-                reply.stop_reason,
-                reply.model,
-                reply.usage,
-                round((time.perf_counter() - began) * 1000, 1),
-            )
-        )
+        reply = await ask("auto", time_left())
+        if reply is None:
+            return await wrap_up("time_limit")
 
         match reply.stop_reason:
             case "end_turn":
-                answer = reply.text().strip()
-                return finish("answered", answer) if answer else finish("no_answer")
+                check = check_answer(reply.text(), seen=seen)
+                if not check.problems:
+                    return finish("answered", check.diagnosis)
+                if repairs < limits.max_repairs:
+                    repairs += 1
+                    messages.append(_repair(check.problems))
+                    continue
+                if check.diagnosis is None:
+                    return finish("invalid_output")
+                dropped.extend(check.unresolved)
+                return finish("answered", check.diagnosis)
             case "max_tokens":
                 return finish("max_tokens")
             case "refusal":
@@ -265,10 +361,10 @@ async def run_agent(
         if not uses:
             return finish("unexpected_stop")
         if len(calls) + len(uses) > limits.max_tool_calls:
-            return finish("tool_limit")
+            return await wrap_up("tool_limit")
         try:
             async with asyncio.timeout(time_left()):
-                results = await asyncio.gather(*(call(use, turn) for use in uses))
+                results = await asyncio.gather(*(call(use, len(served_by)) for use in uses))
         except TimeoutError:
-            return finish("time_limit")
+            return await wrap_up("time_limit")
         messages.append({"role": "user", "content": list(results)})

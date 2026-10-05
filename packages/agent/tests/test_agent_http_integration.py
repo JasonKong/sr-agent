@@ -13,7 +13,7 @@ import uvicorn
 
 from sr_agent.loop import AgentRun, run_agent
 from sr_agent.model import ModelReply, ModelRequest
-from sr_agent.testing import FakeModel, reply, text, tool_use
+from sr_agent.testing import FakeModel, answer, reply, tool_use
 from sr_agent.toolbox import connect_http
 from sr_mcp.adapters.postgres import PostgresReferralStore
 from sr_mcp.http import build_app
@@ -62,11 +62,11 @@ def test_the_model_sees_what_the_store_holds(
     referral = next(r for r in world.referrals if r.hub_referral_id)
     seen: list[str] = []
 
-    def answer(request: ModelRequest) -> ModelReply:
+    def respond(request: ModelRequest) -> ModelReply:
         seen.append(request.messages[-1]["content"][0]["content"])
-        return reply(text("Answered from the evidence."))
+        return answer(evidence=[(referral.id, "the referral, read from the store")])
 
-    model = FakeModel(reply(tool_use("get_referral", referral_id=referral.id)), answer)
+    model = FakeModel(reply(tool_use("get_referral", referral_id=referral.id)), respond)
 
     async def ask() -> AgentRun:
         async with connect_http(url, TOKEN) as toolbox:
@@ -79,3 +79,7 @@ def test_the_model_sees_what_the_store_holds(
     assert json.loads(seen[0])["referral"] == expected.model_dump(mode="json")
     assert run.outcome == "answered"
     assert not run.tool_calls[0].is_error
+    assert run.diagnosis is not None
+    assert [(e.record_id, e.record_type) for e in run.diagnosis.evidence] == [
+        (referral.id, "referral")
+    ]

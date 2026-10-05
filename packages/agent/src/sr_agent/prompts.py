@@ -43,13 +43,17 @@ Method:
    - a referral delivered recently and not opened yet is normal;
    - a past ticket or note about the same clinic may describe a different cause.
 
-Answer in plain English:
-- Root cause: one code from the list below, or "not enough evidence".
-- Confidence: high, medium or low.
-- Evidence: the record ids you relied on (such as dl_538183 or hub-worker:009472), each
-  with what it shows.
-- Next step for CS, and whether to escalate to engineering.
-- Optionally, a short draft reply for the customer.
+Answer with the JSON object the response format asks for:
+- summary: 2 to 4 plain-English sentences for the CS team member.
+- root_cause_code: one code from the list below, or null when there is not enough evidence
+  to settle it.
+- confidence: high, medium or low.
+- evidence: the records you relied on, each with its record_id exactly as it appears in a
+  tool result (such as dl_538183, GR-10234 or hub-worker:009472) and what it shows. Cite
+  only ids you have seen in tool results.
+- recommended_action: the next step for CS.
+- escalate_to_engineering: true only for a platform fault CS cannot resolve.
+- draft_customer_reply: a short draft for CS to edit, or null.
 
 Root-cause codes:
 {codes}
