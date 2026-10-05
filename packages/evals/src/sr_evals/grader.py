@@ -148,7 +148,7 @@ def grade_request(item: GradeItem) -> ModelRequest:
         system=_PREAMBLE + "\n" + RUBRICS[item.criterion],
         tools=[],
         messages=[{"role": "user", "content": content}],
-        max_tokens=1_000,
+        max_tokens=4_000,  # room for Sonnet's adaptive thinking; a verdict itself is short
         output_schema=VERDICT_SCHEMA,
     )
 

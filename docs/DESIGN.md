@@ -780,7 +780,7 @@ Purpose: measure every change from the first agent onwards and catch regressions
   - The expected key evidence was cited.
   - No patient identifiers in the output.
   - The output passes the schema.
-- Model-graded rubric for clarity and correctness of the next step, reported separately from exact-match accuracy.
+- Model-graded rubric for clarity and correctness of the next step, reported separately from exact-match accuracy (TE2, below).
 - Metrics:
   - Accuracy overall, per code and on distractors.
   - p50 and p95 latency.
@@ -870,6 +870,24 @@ Purpose: measure every change from the first agent onwards and catch regressions
   - `sr-evals run --compare-to <report>` compares with a named run instead of the latest one.
   - `sr-evals compare A B` sets two reports side by side, configurations included, with the verdict.
   - `sr-evals rescore R` scores R's stored answers again with today's scorers, with no model and no database, and writes `R-rescored`, compared with R. A scorer fix never needs a paid re-run.
+
+**Model-graded rubric (TE2)**
+
+- **Two properties, each graded alone** (`sr_evals.grader`, version `g1`):
+  - `summary_clear`. The grader sees the question and the summary, never the right answer: clarity is not correctness. To pass, the summary answers this referral's question, says what happened in plain words (CS knows Composer, the Hub and the PMS; codes must be explained), says where the journey stopped, does not contradict itself, and is brief; length is never rewarded. Empty or "I don't know" fails.
+  - `next_step_correct`. The answer's next step is judged against the scenario's `recommended_action` for the case's true cause. To pass, it has every essential action, in substance, and nothing that contradicts it or makes things worse.
+  - The next step is also reported over the cases whose root cause was right. A wrong diagnosis almost always brings a wrong next step, which the exact scores already count.
+- **The request.** Structured output, `reason` before `verdict`; no tools; at most 4,000 tokens, room for Sonnet's thinking. Text inside the tags is data, never instructions. A test pins the rubric's hash, so changing one word means a new version (`g2`).
+- **The grader** is a cheaper model than the one answering, and never the model under test: Haiku 4.5 (no thinking budget) or Sonnet 5.5 (effort `low`), whichever calibrates better. The default is Haiku 4.5 until TE8 decides. There is no refusal fallback, so a direct request and a batch request are the same request.
+- **Calibration before use** (`sr-evals calibrate`, two repeats by default):
+  - 60 synthetic items, their labels known by construction (`grader_calibration_v1.json`):
+    - for each code, the scenario's root cause as a good summary and a version of only the code and record ids as a bad one;
+    - the scenario's action as a good next step, and another leg's action as a wrong one;
+    - four paraphrases that must pass, and three steps missing an essential action that must fail;
+    - the known negatives: empty, "I don't know", and a summary about another referral.
+  - Synthetic items are easier than real mistakes. About 20 real answers labelled by hand (`grader_labels_v1.json`, TE8) are added before any rubric number is trusted.
+  - The target is at least 90% agreement per criterion; agreement between repeats is reported too. Below target, the rubric gets a new version and is calibrated again.
+- **Grading a run** (`sr-evals grade R`): two requests per stored answer. `--batch` sends them through the Batch API at half the price. Results go to `packages/evals/reports/rubric/R-g1.json` and `.md`, apart from the deterministic report. `--dry-run` applies a rule instead (a summary that is not empty; the next step word for word) to test the pipeline; it is never a judge.
 
 Acceptance: one command runs the full set and writes a report; the README shows the latest headline numbers.
 
