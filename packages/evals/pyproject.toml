@@ -3,8 +3,23 @@ name = "sr-evals"
 version = "0.1.0"
 description = "Evaluation datasets, scorers and reports for SR-Agent."
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "pydantic>=2.13",
+    "sr-agent",
+    "sr-db",
+    "sr-mcp",
+    "sr-simulator",
+]
+
+[project.scripts]
+sr-evals = "sr_evals.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.12.22,<0.13.0"]
 build-backend = "uv_build"
+
+[tool.uv.sources]
+sr-agent = { workspace = true }
+sr-simulator = { workspace = true }
+sr-db = { workspace = true }
+sr-mcp = { workspace = true }
