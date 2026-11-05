@@ -108,3 +108,83 @@ def test_the_prompt_and_tool_descriptions_are_recorded(labels: Path, tmp_path: P
     assert report.flags["tool_descriptions"] == "v2"
     [run] = list((tmp_path / "runs").glob("*/F07-1.json"))
     assert '"prompt_version": "v2"' in run.read_text()
+
+
+def test_the_model_settings_and_cost_cap_are_recorded(labels: Path, tmp_path: Path) -> None:
+    argv = ["run", "--dry-run", "--cases", "F07-1", "--labels", str(labels)]
+    argv += ["--reports-dir", str(tmp_path / "r"), "--runs-dir", str(tmp_path / "runs")]
+    argv += ["--max-cost-usd", "2.5"]
+    assert main(argv, connect=in_process) == 0
+
+    [path] = list((tmp_path / "r").glob("*.json"))
+    flags = EvalReport.model_validate_json(path.read_text()).flags
+    assert flags["max_cost_usd"] == 2.5
+    assert flags["fallback"] is False  # the oracle is no model
+    assert flags["thinking"] == "n/a"
+
+
+@asynccontextmanager
+async def must_not_connect(url: str, token: str) -> AsyncIterator[McpToolbox]:
+    raise AssertionError("connected before checking the model settings")
+    yield  # pragma: no cover
+
+
+@pytest.mark.parametrize(
+    ("extra", "message"),
+    [
+        (["--model", "claude-haiku-4-5", "--effort", "low"], "has no effort levels"),
+        (["--model", "claude-typo"], "no request profile"),
+    ],
+)
+def test_bad_model_settings_stop_before_connecting(
+    extra: list[str],
+    message: str,
+    labels: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    code = main(["run", "--labels", str(labels), *extra], connect=must_not_connect)
+
+    assert code == 2
+    assert message in capsys.readouterr().err
+
+
+def test_the_cost_cap_reaches_the_runner(labels: Path, tmp_path: Path) -> None:
+    # A cap of $0 is reached before the first case, so nothing runs.
+    argv = ["run", "--dry-run", "--cases", "F07-1,F06-1", "--labels", str(labels)]
+    argv += ["--reports-dir", str(tmp_path / "r"), "--runs-dir", str(tmp_path / "runs")]
+    assert main([*argv, "--max-cost-usd", "0"], connect=in_process) == 0
+
+    [path] = list((tmp_path / "r").glob("*.json"))
+    report = EvalReport.model_validate_json(path.read_text())
+    assert report.metrics.errors == 2
+    assert {s.error for s in report.scores} == {"not run: the cost cap of $0.00 was reached"}
+
+
+def test_an_unreadable_earlier_report_does_not_lose_the_run(labels: Path, tmp_path: Path) -> None:
+    reports, runs = tmp_path / "r", tmp_path / "runs"
+    reports.mkdir()
+    (reports / "20200101-000000-oracle.json").write_text("{}")  # an old, unreadable format
+    argv = ["run", "--dry-run", "--cases", "F07-1", "--labels", str(labels)]
+    argv += ["--reports-dir", str(reports), "--runs-dir", str(runs)]
+    assert main(argv, connect=in_process) == 0
+
+    [path] = [p for p in reports.glob("*.json") if not p.name.startswith("2020")]
+    assert EvalReport.model_validate_json(path.read_text()).comparison is None
+    assert (runs / path.stem / "F07-1.json").exists()
+
+
+def test_the_runs_are_saved_before_anything_that_could_fail(
+    labels: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def broken(*args: object, **kwargs: object) -> None:
+        raise RuntimeError("the report step failed")
+
+    monkeypatch.setattr("sr_evals.cli.find_previous", broken)
+    argv = ["run", "--dry-run", "--cases", "F07-1", "--labels", str(labels)]
+    argv += ["--reports-dir", str(tmp_path / "r"), "--runs-dir", str(tmp_path / "runs")]
+    with pytest.raises(RuntimeError):
+        main(argv, connect=in_process)
+
+    assert [p.name for p in (tmp_path / "runs").glob("*/*.json")] == ["F07-1.json"]

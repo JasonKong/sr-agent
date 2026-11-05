@@ -3,9 +3,11 @@
 import asyncio
 from typing import Any
 
+import pytest
+
 from sr_agent.loop import Limits
-from sr_agent.model import ModelReply, ModelRequest, ModelUnavailable
-from sr_agent.testing import FakeModel, FakeToolbox, answer, reply, tool_use
+from sr_agent.model import ModelReply, ModelRequest, ModelUnavailable, TokenUsage
+from sr_agent.testing import FakeModel, FakeToolbox, answer, diagnosis_json, reply, text, tool_use
 from sr_agent.toolbox import ToolOutcome
 from sr_db.domain import FailureCode
 from sr_evals.dataset import EvalCase
@@ -87,3 +89,36 @@ def test_a_service_failure_in_one_case_does_not_stop_the_others() -> None:
     ]
     assert results[1].run is None
     assert results[0].run is not None
+
+
+def test_a_cost_cap_stops_starting_cases_once_it_is_reached() -> None:
+    # Each case costs $1.00: 50,000 output tokens at Opus 5.5's $20 per million.
+    priced = TokenUsage(output_tokens=50_000)
+
+    def model_for(c: EvalCase) -> FakeModel:
+        return FakeModel(reply(text(diagnosis_json()), usage=priced, model="claude-opus-5-5"))
+
+    results = asyncio.run(
+        run_cases(
+            [case(n) for n in range(1, 5)],
+            model_for=model_for,
+            toolbox=FakeToolbox({}),
+            concurrency=1,
+            max_cost_usd=1.5,
+        )
+    )
+
+    assert [r.run is not None for r in results] == [True, True, False, False]
+    assert [r.error for r in results[2:]] == ["not run: the cost cap of $1.50 was reached"] * 2
+    assert sum(r.run.cost_usd or 0 for r in results if r.run) == pytest.approx(2.0)
+
+
+def test_without_a_cap_every_case_runs() -> None:
+    def model_for(c: EvalCase) -> FakeModel:
+        priced = TokenUsage(output_tokens=50_000)
+        return FakeModel(reply(text(diagnosis_json()), usage=priced, model="claude-opus-5-5"))
+
+    results = asyncio.run(
+        run_cases([case(1), case(2)], model_for=model_for, toolbox=FakeToolbox({}))
+    )
+    assert all(r.run is not None for r in results)

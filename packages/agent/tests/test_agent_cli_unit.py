@@ -22,7 +22,14 @@ from sr_mcp.testing import fake_deps
 def isolated_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """No .env and no SRA_ or token variables from the developer's shell."""
     monkeypatch.chdir(tmp_path)
-    for name in ("MCP_HTTP_TOKEN", "ANTHROPIC_API_KEY", "SRA_MODEL", "SRA_EFFORT", "SRA_MCP_URL"):
+    for name in (
+        "MCP_HTTP_TOKEN",
+        "ANTHROPIC_API_KEY",
+        "SRA_MODEL",
+        "SRA_EFFORT",
+        "SRA_MCP_URL",
+        "SRA_THINKING_DISPLAY",
+    ):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv("MCP_HTTP_TOKEN", "t" * 40)
 
@@ -126,6 +133,7 @@ def test_settings_have_safe_defaults_and_read_the_environment(
         200_000,
     )
     assert defaults.anthropic_api_key is None
+    assert defaults.thinking_display == "omitted"
 
     monkeypatch.setenv("SRA_MODEL", "claude-sonnet-5-5")
     monkeypatch.setenv("SRA_EFFORT", "low")
@@ -185,3 +193,30 @@ def test_serve_needs_the_mcp_token(
     monkeypatch.delenv("MCP_HTTP_TOKEN")
     assert main(["serve"]) == 2
     assert "MCP_HTTP_TOKEN" in capsys.readouterr().err
+
+
+@asynccontextmanager
+async def must_not_connect(url: str, token: str) -> AsyncIterator[McpToolbox]:
+    raise AssertionError("connected before checking the model settings")
+    yield  # pragma: no cover
+
+
+def test_an_effort_for_a_model_without_effort_levels_stops_before_connecting(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    argv = ["ask", "q", "--model", "claude-haiku-4-5", "--effort", "low"]
+    code = main(argv, connect=must_not_connect)
+
+    assert code == 2
+    assert "claude-haiku-4-5 has no effort levels" in capsys.readouterr().err
+
+
+def test_an_unknown_model_stops_before_connecting(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    code = main(["ask", "q", "--model", "claude-typo"], connect=must_not_connect)
+
+    assert code == 2
+    assert "no request profile for model 'claude-typo'" in capsys.readouterr().err

@@ -21,7 +21,7 @@ make api         # the agent's HTTP API on 127.0.0.1:8766 for the console (uv ru
 uv run sim case F07_CLINIC_PMS_AUTH_FAILED  # one labelled case with its evidence ids (no DB needed)
 uv run sim case F00_NO_FAULT --distractor recovered_pms_auth  # a case with a distractor
 uv run sr-evals build          # rebuild the frozen eval dataset (packages/evals/datasets/v1.json)
-uv run sr-evals run --cases smoke   # eval: 12 cases (or all, or ids); needs make seed, make mcp-http and a key
+uv run sr-evals run --cases smoke --max-cost-usd 5   # eval: 12 cases (or all, or ids); needs make seed, make mcp-http and a key
 uv run sr-evals run --dry-run       # the same pipeline with an oracle model: free, must score 100%
 uv run sr-evals retrieval           # retrieval experiments (embedders x chunk sizes x modes) on scratch DBs
 uv run sr-evals serve-oracle        # the agent API with an oracle model, for the console and e2e without a key
@@ -29,7 +29,7 @@ make test-integration          # tests marked integration, against the local Pos
 uv run pytest -m live          # tests that call a real model API (skipped by default)
 ```
 
-CI (`.github/workflows/ci.yml`) runs `make check`, the web console's check, build and Playwright tests (with the oracle), and, against a Postgres service container, `make migrate` and `make test-integration` on every pull request. `.github/workflows/eval.yml` runs the eval smoke set on a manual trigger or a push to `main` (never on pull requests), using the `ANTHROPIC_API_KEY` secret. Actions are pinned to commit SHAs; keep the `# vX.Y.Z` comment next to each SHA. Run `actionlint` after editing workflows.
+CI (`.github/workflows/ci.yml`) runs `make check`, the web console's check, build and Playwright tests (with the oracle), and, against a Postgres service container, `make migrate` and `make test-integration` on every pull request. `.github/workflows/eval.yml` runs the eval smoke set on a manual trigger only (never on pull requests or pushes), with a $5 cost cap, using the `ANTHROPIC_API_KEY` secret. Actions are pinned to commit SHAs; keep the `# vX.Y.Z` comment next to each SHA. Run `actionlint` after editing workflows.
 
 ## Layout
 
@@ -75,6 +75,7 @@ CI (`.github/workflows/ci.yml`) runs `make check`, the web console's check, buil
 - Unit tests never call a real model or AWS; use `FakeModel` and fake adapters. Mark real-model tests `@pytest.mark.live`.
 - The agent (`sr_agent`):
   - Reaches data only through MCP tools.
+  - Builds every model request from the model's profile (`sr_agent.model_profiles`); a new model needs a profile and a price (`sr_agent.pricing`).
   - Keeps the conversation append-only. Each reply is appended exactly as received, thinking blocks included. Never edit earlier messages, the system prompt or the tool list during a run.
   - Tests use `FakeModel` and `FakeToolbox` from `sr_agent.testing`. They connect to the real MCP server in-process with `open_toolbox(Client(create_server(fake_deps())))`.
 - Add a dependency to the package that uses it (`uv add --package <dist-name> <dep>`), never to the workspace root. The only exception is dev tools.

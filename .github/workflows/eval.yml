@@ -1,13 +1,12 @@
 name: Eval smoke
 
 # The 12-case smoke set (one case per root-cause code), against the real model API.
-# It runs on a manual trigger or a push to main, never on pull requests, so a fork can
-# never reach the API key. Without the ANTHROPIC_API_KEY secret, it runs the oracle dry
-# run instead, which checks the whole pipeline at no cost.
+# It runs only on a manual trigger: never on pull requests, so a fork can never reach the
+# API key, and never on a push, so merging costs nothing. A cost cap stops it starting new
+# cases after $5. Without the ANTHROPIC_API_KEY secret, it runs the oracle dry run
+# instead, which checks the whole pipeline at no cost.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
 
 permissions:
   contents: read
@@ -69,7 +68,9 @@ jobs:
           exit 1
       - name: Smoke eval against the model API
         if: env.ANTHROPIC_API_KEY != ''
-        run: uv run sr-evals run --cases smoke --label ci --reports-dir var/evals/reports
+        run: >-
+          uv run sr-evals run --cases smoke --label ci --max-cost-usd 5
+          --reports-dir var/evals/reports
       - name: Oracle dry run (no API key configured)
         if: env.ANTHROPIC_API_KEY == ''
         run: uv run sr-evals run --cases smoke --dry-run --label ci
