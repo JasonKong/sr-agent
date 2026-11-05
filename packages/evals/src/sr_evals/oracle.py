@@ -11,39 +11,58 @@ pipeline, not in a model.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
+from dataclasses import dataclass
 
 from sr_agent.diagnosis import DiagnosisDraft, EvidenceCitation
 from sr_agent.model import Block, ModelReply, ModelRequest, TokenUsage
 from sr_db.domain import FailureCode
 from sr_evals.dataset import EvalCase, ExpectedRecord
-from sr_simulator.case_rows import expected_evidence
+from sr_simulator.case_rows import case_rows, expected_evidence, find_evidence
 from sr_simulator.rows import Referral, World
-from sr_simulator.scenario import load_scenarios
+from sr_simulator.scenario import load_distractors, load_scenarios
+
+
+@dataclass(frozen=True)
+class Wording:
+    """Answer text taken from the answer key, so a console demo reads like a real answer."""
+
+    summary: str
+    recommended_action: str
+    draft_customer_reply: str
+    details: dict[str, str]  # record id -> what the record shows
 
 
 class OracleModel:
     name = "oracle"
 
-    def __init__(self, case: EvalCase, clinic_id: str) -> None:
+    def __init__(self, case: EvalCase, clinic_id: str, wording: Wording | None = None) -> None:
         self._case = case
         self._clinic_id = clinic_id
+        self._wording = wording
 
     def _tool(self, n: int, name: str, **arguments: object) -> Block:
         return {"type": "tool_use", "id": f"oracle_{n}", "name": name, "input": arguments}
 
     def _answer(self) -> ModelReply:
         case = self._case
+        words = self._wording
+        details = words.details if words else {}
         draft = DiagnosisDraft(
-            summary=f"Oracle answer for {case.case_id}.",
+            summary=words.summary if words else f"Oracle answer for {case.case_id}.",
             root_cause_code=case.code,
             confidence="high",
             evidence=[
-                EvidenceCitation(record_id=e.record_id, detail="expected evidence")
+                EvidenceCitation(
+                    record_id=e.record_id, detail=details.get(e.record_id, "expected evidence")
+                )
                 for e in case.expected_evidence
                 if not e.table.startswith("knowledge.")
             ],
-            recommended_action="Follow the runbook for this code.",
-            draft_customer_reply=None,
+            recommended_action=(
+                words.recommended_action if words else "Follow the runbook for this code."
+            ),
+            draft_customer_reply=words.draft_customer_reply if words else None,
             escalate_to_engineering=case.escalate_to_engineering,
         )
         text: Block = {"type": "text", "text": draft.model_dump_json()}
@@ -127,5 +146,46 @@ class QuestionOracle:
             return ModelReply(
                 content=[text], stop_reason="end_turn", usage=TokenUsage(), model=self.name
             )
-        oracle = OracleModel(self._case(referral), referral.recipient_clinic_ref)
+        oracle = OracleModel(
+            self._case(referral), referral.recipient_clinic_ref, self._wording(referral)
+        )
         return await oracle.complete(request)
+
+    def _wording(self, referral: Referral) -> Wording:
+        """The scenario's own root cause and next step; for a distractor, why it misled."""
+        code = self._world.labels.get(referral.id, FailureCode.F00_NO_FAULT)
+        scenario = load_scenarios()[code]
+        kind = self._world.distractors.get(referral.id)
+        specs = list(scenario.evidence)
+        root_cause = _plain(scenario.root_cause)
+        summary = root_cause
+        if kind is not None:
+            distractor = load_distractors()[kind]
+            specs += distractor.evidence
+            summary += f" Why it looked wrong: {_plain(distractor.trap)}"
+        rows = case_rows(self._world, referral.id)
+        details: dict[str, str] = {}
+        for spec in specs:
+            for row in find_evidence(rows, spec):
+                record_id = str(row.id)  # type: ignore[attr-defined]
+                details.setdefault(record_id, _describe(row, spec.where))
+        return Wording(
+            summary=summary,
+            recommended_action=_plain(scenario.recommended_action),
+            draft_customer_reply=(
+                f"Thanks for getting in touch about {referral.id}. We have checked it in both "
+                f"systems. {root_cause} We will let you know once it is sorted."
+            ),
+            details=details,
+        )
+
+
+def _plain(text: str) -> str:
+    return " ".join(text.split())
+
+
+def _describe(row: object, where: Mapping[str, object]) -> str:
+    """The values the scenario looks for, as this record holds them."""
+    if not where:
+        return "the record the scenario rests on"
+    return ", ".join(f"{key.replace('_', ' ')} {getattr(row, key)}" for key in where)
