@@ -1,11 +1,12 @@
-"""Every v1 question can be answered through the tools: ids exist, names find the referral."""
+"""Every question, in v1 and the holdout set, can be answered through the tools: ids exist,
+and names find the referral."""
 
 from datetime import timedelta
 
 import psycopg
 import pytest
 
-from sr_evals.dataset import DATASET_V1, Dataset, load_dataset, world_for
+from sr_evals.dataset import DATASETS, Dataset, load_dataset, world_for
 from sr_mcp.adapters.base import ReferralFilters
 from sr_mcp.adapters.postgres import PostgresReferralStore
 from sr_simulator.rows import World
@@ -14,9 +15,9 @@ from sr_simulator.write import write_world
 pytestmark = pytest.mark.integration
 
 
-@pytest.fixture(scope="module")
-def dataset() -> Dataset:
-    return load_dataset(DATASET_V1)
+@pytest.fixture(scope="module", params=sorted(DATASETS))
+def dataset(request: pytest.FixtureRequest) -> Dataset:
+    return load_dataset(DATASETS[request.param])
 
 
 @pytest.fixture(scope="module")

@@ -17,6 +17,7 @@ from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
+from sr_evals.compare import sign_test, verdict
 from sr_evals.scorers import CaseScore
 
 REPORTS_DIR = Path(__file__).resolve().parents[2] / "reports"
@@ -139,6 +140,9 @@ class Comparison(BaseModel):
     deltas: dict[str, float | None]
     fixed: list[str]  # wrong before, right now
     broke: list[str]  # right before, wrong now
+    excluded: list[str] = []  # an error in either run: an outage is not an answer
+    p_value: float | None = None  # exact two-sided sign test on fixed against broke
+    verdict: str | None = None  # sr_evals.compare.verdict
 
 
 _DELTAS = [
@@ -170,18 +174,89 @@ class EvalReport(BaseModel):
 
 
 def compare(current: EvalReport, previous: EvalReport) -> Comparison:
+    """Case by case, over the cases both runs have (section 7.5, `sr_evals.compare`)."""
     deltas: dict[str, float | None] = {}
     for name in _DELTAS:
         now, then = getattr(current.metrics, name), getattr(previous.metrics, name)
         deltas[name] = None if now is None or then is None else now - then
-    before = {s.case_id: s.root_cause_correct for s in previous.scores}
-    fixed = [
-        s.case_id for s in current.scores if s.root_cause_correct and before.get(s.case_id) is False
+    before = {s.case_id: s for s in previous.scores}
+    fixed, broke, excluded = [], [], []
+    for s in current.scores:
+        old = before.get(s.case_id)
+        if old is None:
+            continue
+        if s.error is not None or old.error is not None:
+            excluded.append(s.case_id)
+        elif s.root_cause_correct and not old.root_cause_correct:
+            fixed.append(s.case_id)
+        elif old.root_cause_correct and not s.root_cause_correct:
+            broke.append(s.case_id)
+    return Comparison(
+        previous_id=previous.report_id,
+        deltas=deltas,
+        fixed=fixed,
+        broke=broke,
+        excluded=excluded,
+        p_value=sign_test(len(fixed), len(broke)),
+        verdict=verdict(len(fixed), len(broke)),
+    )
+
+
+def verdict_line(c: Comparison) -> str:
+    p = "-" if c.p_value is None else f"{c.p_value:.3f}"
+    return (
+        f"Verdict: **{c.verdict}** ({len(c.fixed)} fixed, {len(c.broke)} broke; sign test p = {p})"
+    )
+
+
+def render_comparison(current: EvalReport, previous: EvalReport) -> str:
+    """`sr-evals compare`: the two runs side by side, then the case-by-case verdict."""
+    c = compare(current, previous)
+
+    def config(r: EvalReport) -> list[str]:
+        return [
+            f"`{r.model}` ({r.effort})",
+            r.prompt_version,
+            "off" if r.flags.get("no_rag") else "on",
+            str(r.flags.get("tool_descriptions", "v1")),
+        ]
+
+    def measures(r: EvalReport) -> list[str]:
+        m = r.metrics
+        return [
+            str(m.cases),
+            _pct(m.accuracy),
+            _pct(m.accuracy_distractors),
+            _pct(m.key_evidence_recall),
+            _pct(m.evidence_resolves),
+            f"{m.latency_p50_s:.1f} s / {m.latency_p95_s:.1f} s",
+            f"{m.tool_calls_mean:.1f}",
+            _money(m.cost_per_case_usd),
+            f"{m.errors}",
+        ]
+
+    names = ["Model (effort)", "Prompt", "Knowledge tools", "Tool descriptions"]
+    names += ["Cases", "Root-cause accuracy", "Accuracy, distractor cases", "Key evidence recall"]
+    names += ["Evidence resolves", "Latency p50 / p95", "Tool calls per case", "Cost per case"]
+    names += ["Errors"]
+    before, after = config(previous) + measures(previous), config(current) + measures(current)
+    rows = zip(names, before, after, strict=True)
+    lines = [
+        f"# {previous.report_id} against {current.report_id}",
+        "",
+        f"Dataset {current.dataset_version}. Older run first.",
+        "",
+        f"| Measure | {previous.report_id} | {current.report_id} |",
+        "| --- | --- | --- |",
+        *(f"| {name} | {a} | {b} |" for name, a, b in rows),
+        "",
+        verdict_line(c),
+        "",
+        f"Now right: {', '.join(c.fixed) or 'none'}. Now wrong: {', '.join(c.broke) or 'none'}.",
     ]
-    broke = [
-        s.case_id for s in current.scores if not s.root_cause_correct and before.get(s.case_id)
-    ]
-    return Comparison(previous_id=previous.report_id, deltas=deltas, fixed=fixed, broke=broke)
+    if c.excluded:
+        lines.append(f"Left out, an error in either run: {', '.join(c.excluded)}.")
+    return "\n".join(lines) + "\n"
 
 
 def find_previous(
@@ -289,9 +364,13 @@ def render_markdown(report: EvalReport) -> str:
             lines.append(f"| {name} | {_signed(delta, unit)} |")
         lines += [
             "",
+            verdict_line(c),
+            "",
             f"Now right: {', '.join(c.fixed) or 'none'}. "
             f"Now wrong: {', '.join(c.broke) or 'none'}.",
         ]
+        if c.excluded:
+            lines.append(f"Left out, an error in either run: {', '.join(c.excluded)}.")
     lines += ["", "## Per code", "", "| Code | Correct | Accuracy |", "| --- | --- | --- |"]
     lines += [
         f"| {k} | {r.correct}/{r.cases} | {_pct(r.accuracy)} |" for k, r in m.per_code.items()

@@ -773,6 +773,7 @@ Purpose: measure every change from the first agent onwards and catch regressions
   - 15 distractor cases.
   - Some questions give a Composer id, some a Hub id, and some only a clinic and date.
   - The dataset is frozen to a file, so runs are comparable.
+  - A holdout set of 75 more cases, from another seed, is the test set (TE1, below).
 - Deterministic scorers:
   - Root cause matches the label.
   - Every evidence reference resolves.
@@ -838,6 +839,37 @@ Purpose: measure every change from the first agent onwards and catch regressions
 - **Smoke set:** one clean case per code (`F00-1` … `F11-1`).
   - **When it runs:** `.github/workflows/eval.yml` runs it on a manual trigger only: never on pull requests, so no fork can reach the API key, and never on a push, so merging costs nothing. It stops starting cases after $5 (`--max-cost-usd`).
   - **Without the `ANTHROPIC_API_KEY` secret,** it runs the oracle dry run instead.
+
+**Comparing runs and the holdout set (TE1)**
+
+- **Two datasets.**
+  - `v1` (the default world, seed 42) is the development set: the agent is tuned against it.
+  - `holdout_v1` (seed 43, with its own selection and wording) is the test set. It is run once, at the end, with the configuration chosen on `v1`, and nothing is tuned against it. Seed 43 was the first seed tried; a seed is chosen only by whether every code and distractor can be filled, never by a score.
+  - Its references differ: 41 by Composer id, 15 by Hub id and 19 by practice and day (v1: 46, 17 and 12). Compare the two sets per reference too.
+  - Running it means seeding its world (`uv run sim seed --seed 43`, then `make ingest`), and the default world again afterwards; `sr-evals run` refuses a world that is not the dataset's.
+  - Tests rebuild both datasets from their worlds, and an integration test checks that every question in both resolves through the tools. The oracle scores 100% on the holdout set through the real database and HTTP server.
+- **When is a difference real?** Two runs are compared case by case, over the cases both have (`sr_evals.compare`):
+  - a case is *fixed* when the newer run is right and the older wrong, and *broke* the other way round;
+  - a case with an error in either run is left out, because an outage is not an answer;
+  - the exact two-sided sign test on fixed against broke (McNemar's exact test) gives p;
+  - the verdict is **better** or **worse** when p < 0.05, **possibly** better or worse when p < 0.20, and **within noise** otherwise. "Possibly" calls for a second run of both, if the decision matters.
+
+  | Fixed and broke together | Smallest split for "better" | Smallest split for "possibly better" |
+  | --- | --- | --- |
+  | 6 | 6:0 (p = 0.031) | 6:0 |
+  | 8 | 8:0 (p = 0.008) | 7:1 (p = 0.070) |
+  | 10 | 9:1 (p = 0.021) | 8:2 (p = 0.109) |
+  | 12 | 10:2 (p = 0.039) | 9:3 (p = 0.146) |
+  | 15 | 12:3 (p = 0.035) | 11:4 (p = 0.118) |
+  | 20 | 15:5 (p = 0.041) | 14:6 (p = 0.115) |
+
+- **What 75 cases can show.** A run must fix six to ten more cases than it breaks (8 to 13 points) to count as better; a change of a few points is within noise at this size.
+- **The rule is checked on the noise run (TE5):** one configuration run twice must come out within noise, and the number of cases that flip between the two says how far one comparison can be trusted. If more than about ten flip, decisions take two runs of each configuration.
+- **Cost and latency** differences count only when they are more than twice the difference between the two noise runs.
+- **Commands.**
+  - `sr-evals run --compare-to <report>` compares with a named run instead of the latest one.
+  - `sr-evals compare A B` sets two reports side by side, configurations included, with the verdict.
+  - `sr-evals rescore R` scores R's stored answers again with today's scorers, with no model and no database, and writes `R-rescored`, compared with R. A scorer fix never needs a paid re-run.
 
 Acceptance: one command runs the full set and writes a report; the README shows the latest headline numbers.
 
