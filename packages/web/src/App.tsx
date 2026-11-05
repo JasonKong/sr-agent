@@ -75,7 +75,8 @@ export function App() {
           records it relied on.
         </p>
       </header>
-      <div className="grid gap-4 lg:grid-cols-[1fr_18rem]">
+      {/* minmax(0, …): a long history entry must not stretch the columns past the screen. */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_18rem]">
         <main className="space-y-4">
           <AskForm busy={busy} onSubmit={(r) => void ask(r)} />
           {error && (

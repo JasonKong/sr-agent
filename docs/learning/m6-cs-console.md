@@ -49,7 +49,16 @@ The dev server proxies `/api` to the agent and adds its bearer token from the re
 
 ## The demo
 
-`TODO(me)`: record a two-to-three-minute video of a CS member resolving three cases, as DESIGN.md section 10 asks. GR-11854 (F07), GR-10008 (F11) and GR-10080 (F06) work well. With an API key, use `make api`; without one, `uv run sr-evals serve-oracle`, and say so in the video.
+The [local demo guide](../demo/README.md) is the script: twelve scenes with screenshots, all with the oracle and at no cost. `pnpm demo:shots` replays it and checks every step.
+
+`TODO(me)`: record a two-to-three-minute video of a CS member resolving three cases, as DESIGN.md section 10 asks; the guide suggests a cut. With an API key, use `make api`; without one, `uv run sr-evals serve-oracle`, and say so in the video.
+
+### Rehearsing the demo found a layout bug
+
+- **The bug.** History entries are truncated on one line. On a phone the grid has one column, and a CSS grid track grows to its content's minimum width. So one long question from the eval set stretched the whole page to about 1,100 px on a 412 px screen.
+- **Why the tests missed it.** The end-to-end tests asked short questions, so they never saw it.
+- **The fix.** The columns now have a zero minimum (`grid-cols-1`, `minmax(0,1fr)`), and a test now asks a long question on both screen sizes.
+- **The lesson:** realistic inputs belong in end-to-end tests. Short fixtures hide layout bugs.
 
 ## Interview talking points
 
