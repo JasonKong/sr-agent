@@ -64,6 +64,8 @@ uv run sr-evals serve-oracle     # terminal 2: the agent API (or `make api` with
 make web-install && make web-dev # terminal 3: http://localhost:5173
 ```
 
+The [local demo guide](docs/demo/README.md) walks through twelve cases with screenshots, at no cost.
+
 Or ask the project's own agent from the terminal (needs `ANTHROPIC_API_KEY` in `.env`):
 
 ```bash

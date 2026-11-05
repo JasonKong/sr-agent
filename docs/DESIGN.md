@@ -928,7 +928,13 @@ Purpose: a simple tool a non-technical CS member can use without training.
   - the evidence in an expandable list;
   - a copy button for the draft reply;
   - banners for an incomplete answer, no answer, or removed clinical advice.
-- **Trying the console without a key.** `uv run sr-evals serve-oracle` serves the real agent API through the real MCP server and database, with an oracle that reads the referral id from the question and answers from the answer key. It is for trying the console and for end-to-end tests at no cost; it is never a model.
+- **Trying the console without a key.** `uv run sr-evals serve-oracle` serves the real agent API through the real MCP server and database. Its oracle reads the referral id from the question and answers from the answer key. It is for trying the console and for end-to-end tests at no cost; it is never a model.
+  - **The oracle's wording comes from the scenario files,** so a demo reads like a real answer:
+    - the scenario's root cause as the summary, and its recommended action as the next step;
+    - for a distractor, the trap that made the case look wrong;
+    - for each record, the values the scenario looks for, as the record holds them (for example "status FAILED, last error code AUTH_TOKEN_EXPIRED");
+    - a short draft reply.
+  - The dry-run oracle (`sr-evals run --dry-run`) keeps its fixed placeholder text; only the codes and evidence are scored.
 
 **Feedback, history and end-to-end tests (T6.2)**
 
@@ -939,8 +945,12 @@ Purpose: a simple tool a non-technical CS member can use without training.
   - **The tests:**
     - a CS member asks about GR-11854 and sees "Clinic PMS authorisation failed" (F07), with its evidence;
     - feedback is accepted, and the diagnosis appears in the history and opens after a reload;
-    - axe-core finds no WCAG 2 A or AA violation on the ask or answer screen.
+    - axe-core finds no WCAG 2 A or AA violation on the ask or answer screen;
+    - a long question in the history does not widen the page. On a phone, a truncated history entry once stretched the single grid column, and the whole page scrolled sideways; the columns now have a zero minimum width.
   - **In CI,** the `e2e` job runs them against a seeded Postgres with no secrets.
+- **The local demo** ([docs/demo/README.md](demo/README.md)) is a script for a presenter, with screenshots.
+  - `pnpm demo:shots` (`playwright.demo.config.ts`, `e2e/demo/`) walks through it with the oracle. Each step checks what it shows before it saves its screenshot, so a broken demo fails there.
+  - It is not part of `make web-e2e` or CI.
 
 Acceptance: works on desktop and mobile widths; passes basic accessibility checks; a Playwright test asks about a seeded case and sees the correct root cause.
 

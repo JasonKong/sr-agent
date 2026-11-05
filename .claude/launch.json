@@ -6,6 +6,18 @@
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--dir", "packages/web", "dev"],
       "port": 5173
+    },
+    {
+      "name": "mcp-http",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": ["run", "sr-mcp", "--transport", "http"],
+      "port": 8765
+    },
+    {
+      "name": "api-oracle",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": ["run", "sr-evals", "serve-oracle"],
+      "port": 8766
     }
   ]
 }
