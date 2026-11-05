@@ -47,15 +47,21 @@ class AnthropicModel:
         timeout_s: float = 60.0,
         max_retries: int = 2,
         thinking_display: ThinkingDisplay = "omitted",
+        thinking: bool = True,
         client: AsyncAnthropic | None = None,
     ) -> None:
         """Without `api_key`, the SDK finds credentials itself (environment or profile).
+
+        `thinking=False` leaves out a thinking budget (a grader needs none); a model that
+        always thinks cannot be asked not to, so that is refused.
 
         Raises `ModelUnavailable` at once for a model without a profile, an effort the
         model does not take, or no credentials: the SDK would otherwise fail only when the
         first request is built, after the run has started.
         """
         profile = profile_for(model)
+        if not thinking and profile.thinking == "adaptive":
+            raise ModelUnavailable(f"{model} always thinks: lower its effort instead")
         if profile.effort and effort is None:
             raise ModelUnavailable(f"{model} needs an effort level")
         if not profile.effort and effort is not None:
@@ -67,6 +73,7 @@ class AnthropicModel:
         self._effort = effort
         self._fallback = fallback and profile.fallbacks
         self._thinking_display: ThinkingDisplay = thinking_display
+        self._think = thinking
         self.client = client or AsyncAnthropic(
             api_key=api_key, timeout=timeout_s, max_retries=max_retries
         )
@@ -94,7 +101,7 @@ class AnthropicModel:
     def thinking(self) -> str:
         """How the model thinks, for run and report records."""
         if self._profile.thinking == "budget":
-            return f"budget {self._profile.thinking_budget}"
+            return f"budget {self._profile.thinking_budget}" if self._think else "off"
         return "adaptive, summarized" if self._thinking_display == "summarized" else "adaptive"
 
     def request_params(self, request: ModelRequest) -> dict[str, Any]:
@@ -107,8 +114,9 @@ class AnthropicModel:
         betas: list[str] = []
         thinking: dict[str, Any] | None = None
         if self._profile.thinking == "budget":
-            thinking = {"type": "enabled", "budget_tokens": self._profile.thinking_budget}
-            betas.append(INTERLEAVED_THINKING_BETA)
+            if self._think:
+                thinking = {"type": "enabled", "budget_tokens": self._profile.thinking_budget}
+                betas.append(INTERLEAVED_THINKING_BETA)
         elif self._thinking_display == "summarized":
             thinking = {"type": "adaptive", "display": "summarized"}
         if self._fallback:
@@ -119,10 +127,11 @@ class AnthropicModel:
             "system": [
                 {"type": "text", "text": request.system, "cache_control": {"type": "ephemeral"}}
             ],
-            "tools": request.tools,
             "messages": request.messages,
             "cache_control": {"type": "ephemeral"},
         }
+        if request.tools:
+            params["tools"] = request.tools
         if output_config:
             params["output_config"] = output_config
         if thinking is not None:

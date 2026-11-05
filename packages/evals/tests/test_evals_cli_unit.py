@@ -11,6 +11,8 @@ from mcp import Client
 from sr_agent.toolbox import McpToolbox, open_toolbox
 from sr_evals.cli import SMOKE, main, select_cases
 from sr_evals.dataset import DATASET_V1, DATASETS, load_dataset
+from sr_evals.grader import CalibrationReport, RubricReport
+from sr_evals.grader_items import CALIBRATION_V1, load_calibration
 from sr_evals.report import EvalReport
 from sr_mcp.server import create_server
 from sr_mcp.testing import fake_deps
@@ -283,3 +285,86 @@ def test_a_dataset_can_be_named_instead_of_given_as_a_path(
 
     [path] = list((tmp_path / "r").glob("*.json"))
     assert EvalReport.model_validate_json(path.read_text()).dataset_version == "holdout_v1"
+
+
+def test_calibrating_the_oracle_grader_agrees_with_every_label(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    assert main(["calibrate", "--dry-run", "--out-dir", str(tmp_path / "rubric")]) == 0
+
+    [path] = list((tmp_path / "rubric").glob("calibration-*-oracle-g1.json"))
+    report = CalibrationReport.model_validate_json(path.read_text())
+    assert all(rate.rate == 1.0 for rate in report.calibration.agreement.values())
+    assert (tmp_path / "rubric" / f"{path.stem}.md").exists()
+    assert "summary_clear 100.0%" in capsys.readouterr().out
+
+
+def test_calibrate_build_writes_the_synthetic_set(tmp_path: Path) -> None:
+    out = tmp_path / "calibration.json"
+    assert main(["calibrate", "--build", "--calibration", str(out)]) == 0
+    assert load_calibration(out) == load_calibration(CALIBRATION_V1)
+
+
+def test_grading_a_run_writes_a_rubric_report_beside_it(labels: Path, tmp_path: Path) -> None:
+    a = dry_run(labels, tmp_path, "a")
+    argv = ["grade", a.report_id, "--dry-run", "--reports-dir", str(tmp_path / "reports")]
+    argv += ["--runs-dir", str(tmp_path / "runs"), "--out-dir", str(tmp_path / "rubric")]
+    assert main(argv) == 0
+
+    report = RubricReport.model_validate_json(
+        (tmp_path / "rubric" / f"{a.report_id}-g1.json").read_text()
+    )
+    assert report.graded_report == a.report_id
+    assert report.grader_version == "g1"
+    assert len(report.grades) == 4  # two cases, two criteria each
+    # The dry-run rule: the oracle's summaries are not empty; its next step is not the
+    # reference word for word.
+    assert report.summary.pass_rates["summary_clear"].rate == 1.0
+    assert report.summary.pass_rates["next_step_correct"].rate == 0.0
+    assert (tmp_path / "rubric" / f"{a.report_id}-g1.md").exists()
+
+
+def test_an_unknown_grader_model_is_refused(
+    labels: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    a = dry_run(labels, tmp_path, "a")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    argv = ["grade", a.report_id, "--grader-model", "claude-typo", "--reports-dir"]
+    argv += [str(tmp_path / "reports"), "--runs-dir", str(tmp_path / "runs")]
+    assert main(argv) == 2
+    assert "no request profile" in capsys.readouterr().err
+
+
+def test_a_labelling_template_is_sampled_from_a_runs_answers(
+    labels: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    reports, runs = tmp_path / "reports", tmp_path / "runs"
+    argv = ["run", "--dry-run", "--labels", str(labels), "--label", "all"]
+    argv += ["--reports-dir", str(reports), "--runs-dir", str(runs)]
+    assert main(argv, connect=in_process) == 0
+    [report] = list(reports.glob("*-all.json"))
+
+    template = tmp_path / "hand.json"
+    argv = ["calibrate", "--sample", report.stem, "--n", "12", "--labels", str(template)]
+    assert main([*argv, "--reports-dir", str(reports), "--runs-dir", str(runs)]) == 0
+
+    document = json.loads(template.read_text())
+    items = document["items"]
+    assert "instructions" in document
+    assert len(items) == 12
+    assert all(i["label"] is None for i in items)  # blind: no grader verdict, no label yet
+    assert {i["criterion"] for i in items} == {"summary_clear", "next_step_correct"}
+    assert len({i["case_id"] for i in items}) == 12  # one property per case
+    assert all(i["source"] == "human" for i in items)
+
+    # Unlabelled items are left out of a calibration, and an existing file is never replaced.
+    monkeypatch.chdir(tmp_path)
+    out = tmp_path / "rubric"
+    assert main(["calibrate", "--dry-run", "--labels", str(template), "--out-dir", str(out)]) == 0
+    [path] = list(out.glob("calibration-*.json"))
+    assert CalibrationReport.model_validate_json(path.read_text()).items == 60
+    assert main([*argv, "--reports-dir", str(reports), "--runs-dir", str(runs)]) == 2

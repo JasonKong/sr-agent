@@ -8,6 +8,8 @@ answer key: the whole pipeline at no cost.
 
 `sr-evals compare A B` sets two reports side by side with the sign-test verdict, and
 `sr-evals rescore R` scores a run's stored answers again, with no model and no database.
+`sr-evals grade R` grades R's answers with the model-graded rubric, and `sr-evals
+calibrate` measures a grader against answers whose label is known.
 """
 
 from __future__ import annotations
@@ -26,11 +28,12 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import get_args
 
-from sr_agent.anthropic_model import model_from_settings
+from sr_agent.anthropic_model import AnthropicModel, model_from_settings
 from sr_agent.api import create_app
 from sr_agent.audit import MemoryAudit
 from sr_agent.loop import AgentRun, Limits
 from sr_agent.model import Effort, ModelClient, ModelUnavailable
+from sr_agent.model_profiles import profile_for
 from sr_agent.prompts import PROMPT_VERSIONS
 from sr_agent.settings import AgentSettings
 from sr_agent.toolbox import (
@@ -54,6 +57,31 @@ from sr_evals.dataset import (
     write_dataset,
 )
 from sr_evals.experiments import Config, render_experiments, run_experiments
+from sr_evals.grader import (
+    GRADER_VERSION,
+    CalibrationReport,
+    Grade,
+    GradeItem,
+    OracleGrader,
+    RubricReport,
+    calibrate,
+    grade_by_batch,
+    grade_items,
+    render_calibration,
+    render_rubric,
+    rubric_sha,
+    summarise_rubric,
+)
+from sr_evals.grader_items import (
+    CALIBRATION_V1,
+    HAND_LABELS_V1,
+    calibration_items,
+    labelling_sample,
+    load_calibration,
+    report_items,
+    write_calibration,
+    write_labelling_template,
+)
 from sr_evals.oracle import OracleModel, QuestionOracle
 from sr_evals.report import (
     REPORTS_DIR,
@@ -374,6 +402,147 @@ def _rescore(args: argparse.Namespace) -> int:
     return 0
 
 
+DEFAULT_GRADER = "claude-haiku-4-5"
+
+
+def grader_model(name: str, settings: AgentSettings) -> AnthropicModel:
+    """A grader at its cheapest: low effort where it has effort levels, no thinking budget.
+
+    No refusal fallback, so a direct request and a batch request are the same request.
+    """
+    profile = profile_for(name)
+    key = settings.anthropic_api_key
+    return AnthropicModel(
+        model=name,
+        effort="low" if profile.effort else None,
+        fallback=False,
+        thinking=profile.thinking == "adaptive",
+        api_key=key.get_secret_value() if key else None,
+        timeout_s=60.0,
+    )
+
+
+def _rubric_dir(args: argparse.Namespace) -> Path:
+    if args.out_dir:
+        out: Path = args.out_dir
+    elif args.dry_run:
+        out = project_root() / "var" / "evals" / "rubric"
+    else:
+        out = REPORTS_DIR / "rubric"
+    out.mkdir(parents=True, exist_ok=True)
+    return out
+
+
+def _grade_all(
+    items: list[GradeItem], args: argparse.Namespace, settings: AgentSettings
+) -> list[Grade]:
+    if args.dry_run:
+        return asyncio.run(grade_items(items, model_for=OracleGrader))
+    model = grader_model(args.grader_model, settings)
+    if getattr(args, "batch", False):
+        return asyncio.run(grade_by_batch(items, model))
+    return asyncio.run(grade_items(items, model_for=lambda item: model))
+
+
+def _sample_for_labelling(args: argparse.Namespace) -> int:
+    """A blind template of real answers to label by hand (TE8), never overwriting labels."""
+    if args.labels.exists():
+        print(f"sr-evals: {args.labels} exists; it may hold hand labels", file=sys.stderr)
+        return 2
+    try:
+        graded, _ = load_report(args.sample, _report_dirs(args))
+    except FileNotFoundError as error:
+        print(f"sr-evals: {error}", file=sys.stderr)
+        return 2
+    runs = (args.runs_dir or project_root() / "var" / "evals" / "runs") / graded.report_id
+    dataset = load_dataset(DATASETS[graded.dataset_version])
+    case_ids = [s.case_id for s in graded.scores]
+    items, _ = report_items(case_ids, runs, dataset, report_id=graded.report_id)
+    correct = {s.case_id: s.root_cause_correct for s in graded.scores}
+    sample = labelling_sample(items, correct, args.n)
+    write_labelling_template(sample, args.labels)
+    print(f"{len(sample)} answers to label written to {args.labels}")
+    return 0
+
+
+def _calibrate(args: argparse.Namespace) -> int:
+    if args.sample:
+        return _sample_for_labelling(args)
+    if args.build:
+        items = calibration_items(load_dataset(DATASET_V1))
+        write_calibration(items, args.calibration)
+        print(f"{len(items)} calibration items written to {args.calibration}")
+        return 0
+    items = [i for i in load_calibration(args.calibration, args.labels) if i.label is not None]
+    settings = AgentSettings()
+    try:
+        repeats = [_grade_all(items, args, settings) for _ in range(args.repeat)]
+    except ModelUnavailable as error:
+        print(f"sr-evals: {error}", file=sys.stderr)
+        return 2 if "profile" in str(error) or "credentials" in str(error) else 1
+    name = "oracle" if args.dry_run else args.grader_model
+    now = datetime.now(UTC)
+    report = CalibrationReport(
+        created_at=now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        git_commit=_git_commit(),
+        items=len(items),
+        calibration=calibrate(items, repeats, grader_model=name),
+    )
+    stem = _rubric_dir(args) / f"calibration-{now:%Y%m%d-%H%M%S}-{name}-{GRADER_VERSION}"
+    stem.with_suffix(".json").write_text(report.model_dump_json(indent=2) + "\n")
+    stem.with_suffix(".md").write_text(render_calibration(report))
+    for criterion, rate in report.calibration.agreement.items():
+        print(f"{criterion} {(rate.rate or 0) * 100:.1f}% agreement over {rate.n} verdicts")
+    print(f"report: {stem.with_suffix('.md')}")
+    return 0
+
+
+def _grade(args: argparse.Namespace) -> int:
+    try:
+        graded, _ = load_report(args.report, _report_dirs(args))
+    except FileNotFoundError as error:
+        print(f"sr-evals: {error}", file=sys.stderr)
+        return 2
+    runs = (args.runs_dir or project_root() / "var" / "evals" / "runs") / graded.report_id
+    if not runs.is_dir() or graded.dataset_version not in DATASETS:
+        print(f"sr-evals: no stored runs in {runs} for this dataset", file=sys.stderr)
+        return 2
+    dataset = load_dataset(DATASETS[graded.dataset_version])
+    case_ids = [s.case_id for s in graded.scores]
+    items, no_answer = report_items(case_ids, runs, dataset, report_id=graded.report_id)
+    settings = AgentSettings()
+    try:
+        grades = _grade_all(items, args, settings)
+    except ModelUnavailable as error:
+        print(f"sr-evals: {error}", file=sys.stderr)
+        return 2 if "profile" in str(error) or "credentials" in str(error) else 1
+    summary = summarise_rubric(
+        grades,
+        root_cause_correct={s.case_id: s.root_cause_correct for s in graded.scores},
+        code_of={s.case_id: s.code.value[:3] for s in graded.scores},
+    )
+    report = RubricReport(
+        graded_report=graded.report_id,
+        dataset_version=graded.dataset_version,
+        grader_version=GRADER_VERSION,
+        rubric_sha=rubric_sha(),
+        grader_model="oracle" if args.dry_run else args.grader_model,
+        batch=bool(args.batch) and not args.dry_run,
+        created_at=datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        git_commit=_git_commit(),
+        no_answer=no_answer,
+        summary=summary,
+        grades=grades,
+    )
+    stem = _rubric_dir(args) / f"{graded.report_id}-{GRADER_VERSION}"
+    stem.with_suffix(".json").write_text(report.model_dump_json(indent=2) + "\n")
+    stem.with_suffix(".md").write_text(render_rubric(report))
+    for criterion, rate in summary.pass_rates.items():
+        print(f"{criterion} {(rate.rate or 0) * 100:.1f}% over {rate.n} answers")
+    print(f"report: {stem.with_suffix('.md')}")
+    return 0
+
+
 def _serve_oracle(args: argparse.Namespace) -> int:
     import uvicorn
 
@@ -504,7 +673,33 @@ def main(argv: list[str] | None = None, *, connect: Connect = connect_http) -> i
     rescore.add_argument("--reports-dir", type=Path)
     rescore.add_argument("--runs-dir", type=Path)
 
+    grade = commands.add_parser("grade", help="grade a run's answers with the rubric")
+    grade.add_argument("report", help="report id or path")
+    grade.add_argument("--grader-model", default=DEFAULT_GRADER)
+    grade.add_argument("--batch", action="store_true", help="through the Batch API, half price")
+    grade.add_argument("--dry-run", action="store_true", help="a rule instead of a model")
+    grade.add_argument("--reports-dir", type=Path)
+    grade.add_argument("--runs-dir", type=Path)
+    grade.add_argument("--out-dir", type=Path, help="default packages/evals/reports/rubric")
+
+    calibration = commands.add_parser("calibrate", help="measure a grader on labelled answers")
+    calibration.add_argument("--grader-model", default=DEFAULT_GRADER)
+    calibration.add_argument("--repeat", type=int, default=2, help="grade every item N times")
+    calibration.add_argument("--dry-run", action="store_true", help="a grader that reads labels")
+    calibration.add_argument("--calibration", type=Path, default=CALIBRATION_V1)
+    calibration.add_argument("--labels", type=Path, default=HAND_LABELS_V1)
+    calibration.add_argument("--build", action="store_true", help="rebuild the synthetic set")
+    calibration.add_argument("--sample", help="write a template of this report's answers to label")
+    calibration.add_argument("--n", type=int, default=20, help="answers in the template")
+    calibration.add_argument("--reports-dir", type=Path)
+    calibration.add_argument("--runs-dir", type=Path)
+    calibration.add_argument("--out-dir", type=Path, help="default packages/evals/reports/rubric")
+
     args = parser.parse_args(argv)
+    if args.command == "grade":
+        return _grade(args)
+    if args.command == "calibrate":
+        return _calibrate(args)
     if args.command == "compare":
         return _compare(args)
     if args.command == "rescore":

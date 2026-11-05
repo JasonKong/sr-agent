@@ -170,6 +170,33 @@ def test_summarized_thinking_is_asked_for_only_where_it_exists() -> None:
     assert haiku.body["thinking"] == {"type": "enabled", "budget_tokens": 4096}
 
 
+def test_a_request_without_tools_sends_no_tool_list() -> None:
+    recorder = Recorder()
+    model = model_with(recorder, model="claude-sonnet-5-5", effort="low", fallback=False)
+    asyncio.run(model.complete(dataclasses.replace(REQUEST, tools=[])))
+
+    assert "tools" not in recorder.body  # a grader asks for a verdict, not a tool call
+
+
+def test_a_budget_thinker_can_be_asked_not_to_think() -> None:
+    recorder = Recorder()
+    client = AsyncAnthropic(
+        api_key="test-key",
+        max_retries=0,
+        http_client=DefaultAsyncHttpxClient(transport=httpx2.MockTransport(recorder)),
+    )
+    model = AnthropicModel(
+        model="claude-haiku-4-5", effort=None, fallback=False, thinking=False, client=client
+    )
+    complete(model)
+
+    assert "thinking" not in recorder.body
+    assert betas(recorder) == []
+    assert model.thinking == "off"
+    with pytest.raises(ModelUnavailable, match="always thinks"):
+        AnthropicModel(model="claude-sonnet-5-5", effort="low", fallback=False, thinking=False)
+
+
 def test_effort_must_match_what_the_model_takes() -> None:
     with pytest.raises(ModelUnavailable, match="no effort levels"):
         model_with(Recorder(), model="claude-haiku-4-5", effort="low")
