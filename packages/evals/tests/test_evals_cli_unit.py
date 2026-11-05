@@ -368,3 +368,47 @@ def test_a_labelling_template_is_sampled_from_a_runs_answers(
     [path] = list(out.glob("calibration-*.json"))
     assert CalibrationReport.model_validate_json(path.read_text()).items == 60
     assert main([*argv, "--reports-dir", str(reports), "--runs-dir", str(runs)]) == 2
+
+
+def test_estimate_uses_the_planning_figure_before_any_paid_run(
+    labels: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    argv = ["run", "--estimate", "--labels", str(labels), "--reports-dir", str(tmp_path)]
+    assert main(argv, connect=must_not_connect) == 0  # no server, no model, no key
+
+    out = capsys.readouterr().out
+    assert "75 cases with claude-opus-5-5 (effort medium, RAG on)" in out
+    assert "about $0.17 a case (planning estimate)" in out
+    assert "about $12.94 in all" in out
+    assert "--max-cost-usd 19.41" in out
+
+
+def test_estimate_prefers_a_measured_cost(
+    labels: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    measured = dry_run(labels, tmp_path, "paid")  # stands in for an earlier paid run
+    fields = measured.model_dump(mode="json")
+    fields |= {"model": "claude-sonnet-5-5", "effort": "medium"}
+    fields["flags"]["dry_run"] = False
+    fields["metrics"]["cost_per_case_usd"] = 0.2
+    (tmp_path / "reports" / f"{measured.report_id}.json").write_text(json.dumps(fields))
+
+    argv = ["run", "--estimate", "--cases", "smoke", "--model", "claude-sonnet-5-5"]
+    argv += ["--labels", str(labels), "--reports-dir", str(tmp_path / "reports")]
+    assert main(argv, connect=must_not_connect) == 0
+
+    out = capsys.readouterr().out
+    assert f"about $0.20 a case (measured in {measured.report_id})" in out
+    assert "about $2.40 in all" in out
+
+
+def test_estimate_for_haiku_without_rag(
+    labels: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    argv = ["run", "--estimate", "--model", "claude-haiku-4-5", "--no-rag"]
+    argv += ["--labels", str(labels), "--reports-dir", str(tmp_path)]
+    assert main(argv, connect=must_not_connect) == 0
+    out = capsys.readouterr().out
+    assert "(effort n/a, RAG off)" in out
+    assert "about $0.04 a case (planning estimate)" in out
+    assert "about $3.00 in all" in out

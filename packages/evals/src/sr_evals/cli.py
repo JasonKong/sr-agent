@@ -28,7 +28,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import get_args
 
-from sr_agent.anthropic_model import AnthropicModel, model_from_settings
+from sr_agent.anthropic_model import AnthropicModel, model_from_settings, resolve_effort
 from sr_agent.api import create_app
 from sr_agent.audit import MemoryAudit
 from sr_agent.loop import AgentRun, Limits
@@ -45,6 +45,7 @@ from sr_agent.toolbox import (
     without,
 )
 from sr_db.domain import FailureCode
+from sr_evals.budget import CAP_FACTOR, per_case_estimate
 from sr_evals.dataset import (
     DATASET_SEEDS,
     DATASET_V1,
@@ -82,6 +83,7 @@ from sr_evals.grader_items import (
     write_calibration,
     write_labelling_template,
 )
+from sr_evals.inspect import RunCheck, check_run, render_checks
 from sr_evals.oracle import OracleModel, QuestionOracle
 from sr_evals.report import (
     REPORTS_DIR,
@@ -168,6 +170,8 @@ def _run(args: argparse.Namespace, connect: Connect) -> int:
     except ValueError as error:
         print(f"sr-evals: {error}", file=sys.stderr)
         return 2
+    if args.estimate:
+        return _estimate(args, dataset, len(cases))
     if not _seeded_world_matches(dataset, args.labels):
         return 2
     settings = AgentSettings()
@@ -316,6 +320,39 @@ def _run(args: argparse.Namespace, connect: Connect) -> int:
         f"accuracy {m.accuracy * 100:.1f}% over {m.cases} cases, p50 {m.latency_p50_s:.1f} s{cost}"
     )
     print(f"report: {md_path}")
+    return 0
+
+
+def _estimate(args: argparse.Namespace, dataset: Dataset, cases: int) -> int:
+    """Case count and expected cost, without connecting to anything or needing a key."""
+    if args.dry_run:
+        print(f"{cases} cases with the oracle: free")
+        return 0
+    settings = AgentSettings()
+    model = args.model or settings.model
+    try:
+        effort = resolve_effort(settings, model, args.effort) or "n/a"
+    except ModelUnavailable as error:
+        print(f"sr-evals: {error}", file=sys.stderr)
+        return 2
+    rag = "off" if args.no_rag else "on"
+    what = f"{cases} cases with {model} (effort {effort}, RAG {rag})"
+    found = per_case_estimate(
+        args.reports_dir or REPORTS_DIR,
+        model=model,
+        effort=effort,
+        no_rag=args.no_rag,
+        dataset_version=dataset.version,
+    )
+    if found is None:
+        print(f"{what}: no estimate yet; run a few cases first (--cases smoke)")
+        return 0
+    per_case, source = found
+    total = per_case * cases
+    print(
+        f"{what}: about ${per_case:.2f} a case ({source}), about ${total:.2f} in all. "
+        f"Suggested cap: --max-cost-usd {total * CAP_FACTOR:.2f}"
+    )
     return 0
 
 
@@ -543,6 +580,27 @@ def _grade(args: argparse.Namespace) -> int:
     return 0
 
 
+def _inspect(args: argparse.Namespace) -> int:
+    """A row per stored run: a report id's runs, or JSON files from `sra ask --json`."""
+    root = args.runs_dir or project_root() / "var" / "evals" / "runs"
+    checks: list[RunCheck] = []
+    errors: dict[str, str] = {}
+    for ref in args.refs:
+        given = Path(ref)
+        files = [given] if given.is_file() else sorted((root / ref).glob("*.json"))
+        if not files:
+            print(f"sr-evals: no stored runs for {ref!r} in {root}", file=sys.stderr)
+            return 2
+        for path in files:
+            body = json.loads(path.read_text())
+            if set(body) == {"error"}:
+                errors[path.stem] = body["error"]
+            else:
+                checks.append(check_run(path.stem, AgentRun.model_validate(body)))
+    print(render_checks(checks, errors), end="")
+    return 0
+
+
 def _serve_oracle(args: argparse.Namespace) -> int:
     import uvicorn
 
@@ -621,6 +679,9 @@ def main(argv: list[str] | None = None, *, connect: Connect = connect_http) -> i
         help="default SRA_THINKING_DISPLAY or omitted; summarized thinking costs the same",
     )
     run.add_argument(
+        "--estimate", action="store_true", help="print the case count and expected cost, then stop"
+    )
+    run.add_argument(
         "--max-cost-usd",
         type=float,
         help="stop starting cases once the finished ones cost this much (estimated, list prices)",
@@ -695,7 +756,13 @@ def main(argv: list[str] | None = None, *, connect: Connect = connect_http) -> i
     calibration.add_argument("--runs-dir", type=Path)
     calibration.add_argument("--out-dir", type=Path, help="default packages/evals/reports/rubric")
 
+    inspect = commands.add_parser("inspect", help="thinking, caching and turns, per stored run")
+    inspect.add_argument("refs", nargs="+", help="report ids, or run files from sra ask --json")
+    inspect.add_argument("--runs-dir", type=Path)
+
     args = parser.parse_args(argv)
+    if args.command == "inspect":
+        return _inspect(args)
     if args.command == "grade":
         return _grade(args)
     if args.command == "calibrate":

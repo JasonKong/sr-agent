@@ -3,7 +3,7 @@
 import pytest
 
 from sr_agent.model import TokenUsage
-from sr_agent.pricing import PRICES, cost_usd
+from sr_agent.pricing import PRICES, canonical_model, cost_usd
 
 
 def test_each_kind_of_token_has_its_own_price() -> None:
@@ -33,3 +33,12 @@ def test_a_typical_diagnosis_costs_cents() -> None:
 
 def test_an_unknown_model_has_no_estimate() -> None:
     assert cost_usd("fake-model", TokenUsage(input_tokens=10)) is None
+
+
+def test_a_dated_snapshot_id_is_priced_as_its_alias() -> None:
+    # A reply names the model that served it: an alias can come back as its dated snapshot.
+    usage = TokenUsage(input_tokens=1_000_000)
+    assert cost_usd("claude-haiku-4-5-20251001", usage) == cost_usd("claude-haiku-4-5", usage)
+    assert canonical_model("claude-haiku-4-5-20251001") == "claude-haiku-4-5"
+    assert canonical_model("claude-opus-5-5") == "claude-opus-5-5"
+    assert canonical_model("claude-opus-5-5-2") == "claude-opus-5-5-2"  # not a date
