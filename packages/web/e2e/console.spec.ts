@@ -61,3 +61,20 @@ test("the ask and answer screens pass basic accessibility checks", async ({ page
   const after = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
   expect(after.violations).toEqual([]);
 });
+
+test("a long question in the history does not widen the page", async ({ page }) => {
+  // History entries are truncated on one line; on a phone, one long question once stretched
+  // the single-column grid to its full width, so the whole page scrolled sideways.
+  const question =
+    "Hi team, About referral GR-11213: The specialist never replied. Could you look into it? " +
+    `They have asked twice now and would like an answer today (${String(Date.now())}).`;
+  const answer = await ask(page, question);
+  await expect(answer).toBeVisible({ timeout: answerTimeout });
+  await expect(page.getByRole("region", { name: "History" })).toContainText("GR-11213");
+
+  const widths = await page.evaluate(() => ({
+    page: document.documentElement.scrollWidth,
+    screen: document.documentElement.clientWidth,
+  }));
+  expect(widths.page).toBeLessThanOrEqual(widths.screen);
+});
