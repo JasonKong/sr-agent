@@ -65,9 +65,12 @@ test.describe("the local demo", () => {
     await test.step("2. the answer, with what the agent checked", async () => {
       const answer = await ask(page, Q.f07, "Clinic PMS authorisation failed");
       await expect(answer.getByText("F07_CLINIC_PMS_AUTH_FAILED")).toBeVisible();
-      // The CS member asked by Hub id; the agent resolved it to the Composer referral.
+      // The CS member asked by Hub id. The oracle looks it up by the Composer id it resolves
+      // to; a real model may pass the Hub id, which get_referral links to both systems.
       await expect(page.getByRole("region", { name: "Progress" })).toContainText(
-        "Looking up the referral in both systems (GR-11854)",
+        live
+          ? /Looking up the referral in both systems \((GR-11854|HR-53818)\)/
+          : "Looking up the referral in both systems (GR-11854)",
       );
       await shot(page, "02-answer", true);
     });
