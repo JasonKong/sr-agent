@@ -1,4 +1,13 @@
-.PHONY: install check lint typecheck test fmt db-up db-down db-reset migrate db-roles db-auditor seed ingest mcp mcp-http api web-install web-check web-dev web-e2e test-integration
+.PHONY: install check lint typecheck test fmt db-up db-down db-reset migrate db-roles db-auditor seed ingest mcp mcp-http api web-install web-check web-dev web-e2e test-integration demo
+
+# `make demo start`, `make demo start oracle`, `make demo stop`, `make demo status`: the
+# words after `demo` go to scripts/demo.sh, and do nothing as make targets of their own.
+ifeq (demo,$(firstword $(MAKECMDGOALS)))
+DEMO_ARGS := $(wordlist 2,$(words $(MAKECMDGOALS)),$(MAKECMDGOALS))
+ifneq ($(DEMO_ARGS),)
+$(eval $(DEMO_ARGS):;@:)
+endif
+endif
 
 install: ## Install all workspace packages and dev tools
 	uv sync
@@ -67,3 +76,6 @@ web-dev: ## The web console on http://localhost:5173 (proxies /api to make api)
 
 web-e2e: ## Playwright end-to-end tests with an oracle model (needs make seed; E2E_API=live for the real model)
 	pnpm --dir packages/web e2e
+
+demo: ## The local demo: make demo start [oracle] | make demo stop | make demo status
+	@scripts/demo.sh $(if $(DEMO_ARGS),$(DEMO_ARGS),status)

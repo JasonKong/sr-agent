@@ -24,20 +24,26 @@ A walkthrough of SR-Agent on a laptop, using dummy data only: the simulated worl
 Do this once; it takes about five minutes.
 
 ```bash
-cp .env.example .env    # set MCP_HTTP_TOKEN to 32+ random characters; leave ANTHROPIC_API_KEY empty
+cp .env.example .env    # set MCP_HTTP_TOKEN to 32+ random characters; ANTHROPIC_API_KEY only for the real model
 make install && make web-install
 make db-up && make migrate && make seed && make db-roles && make ingest
 ```
 
-Then start three terminals:
+Then start everything with one command, from the repository root:
 
 ```bash
-make mcp-http                  # 1: the MCP server on 127.0.0.1:8765
-uv run sr-evals serve-oracle   # 2: the agent API with the oracle, on 127.0.0.1:8766
-make web-dev                   # 3: the console on http://localhost:5173
+make demo start oracle   # the oracle in place of the model: no API key, no cost
+make demo start          # the real model: needs ANTHROPIC_API_KEY in .env
 ```
 
-The oracle API keeps the history in memory. Restart terminal 2 just before the demo, so the history starts empty.
+It checks the set-up first and says how to fix anything missing. Then it starts Postgres, the MCP server (127.0.0.1:8765), the agent API (127.0.0.1:8766) and the console, waits until each one answers, and opens http://localhost:5173. The logs go to `var/demo/logs/`, so the terminal stays quiet. It restarts the agent API every time, so the history starts empty.
+
+```bash
+make demo status   # which services are running
+make demo stop     # stop all four; Postgres keeps its data
+```
+
+Options are plain words (`oracle`), because make would take `--oracle` as one of its own. In Finder, double-click `scripts/demo-start.command` or `scripts/demo-stop.command` to start with the real model or stop everything.
 
 ## Run of show
 
@@ -282,8 +288,9 @@ The walkthrough is `packages/web/e2e/demo/walkthrough.demo.ts`. Each step checks
 
 | Symptom | Fix |
 | --- | --- |
-| "cannot reach the MCP server" | Start `make mcp-http` (terminal 1) |
-| `serve-oracle` exits saying the seeded world does not match | `make seed`, then start it again |
-| Old questions in the history | Restart `uv run sr-evals serve-oracle` |
-| Port 5173, 8765 or 8766 already in use | Stop the earlier run, or the Playwright run that started it |
+| "cannot reach the MCP server" | `make demo status`, then `make demo start oracle` again |
+| The agent API does not start, saying the seeded world does not match | `make seed`, then `make demo start oracle` again |
+| Old questions in the history | `make demo start oracle` again: it restarts the agent API |
+| Port 5173, 8765 or 8766 already in use | `make demo stop`; if something else holds the port, `make demo start` names it |
+| Something else | The service's log in `var/demo/logs/` |
 | Knowledge search returns nothing | `make ingest` |
