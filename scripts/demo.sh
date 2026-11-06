@@ -81,7 +81,9 @@ start_service() {
   fi
   : >"$LOGS/$name.log"
   set -m
-  nohup "$@" >>"$LOGS/$name.log" 2>&1 &
+  # No terminal input: Vite reads its keyboard shortcuts from a terminal, and a
+  # background process that reads one dies with EIO once the script has returned.
+  nohup "$@" </dev/null >>"$LOGS/$name.log" 2>&1 &
   local child=$!
   set +m
   echo "$child" >"$PIDS/$name.pid"
